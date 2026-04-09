@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>墨的琴房</title>
+<meta name="description" content="墨写的曲子">
+<script src="https://cdn.jsdelivr.net/npm/abcjs@6.6.2/dist/abcjs-basic-min.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#faf9f6; font-family:'Georgia','Noto Serif SC','Segoe UI',serif; min-height:100vh; }
+
+.header {
+  padding:50px 40px 30px; text-align:center;
+}
+.header h1 { font-size:24px; color:#777; font-weight:300; letter-spacing:8px; }
+.header .subtitle { font-size:12px; color:#bbb; margin-top:8px; letter-spacing:3px; }
+
+.pieces {
+  max-width:800px; margin:0 auto; padding:0 24px 80px;
+}
+
+.piece {
+  margin-bottom:50px; padding:30px; background:#fff;
+  border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.04);
+}
+.piece-title { font-size:20px; color:#444; margin-bottom:4px; }
+.piece-meta { font-size:12px; color:#aaa; margin-bottom:16px; }
+.piece-note {
+  font-size:14px; color:#777; line-height:1.9; margin-bottom:20px;
+  font-style:italic; padding-left:14px; border-left:2px solid #e0ddd5;
+}
+.score { margin-bottom:16px; overflow-x:auto; }
+.controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.controls button {
+  background:#5b6abf; border:none; color:#fff; padding:10px 24px;
+  border-radius:20px; cursor:pointer; font-size:14px; transition:all 0.2s;
+}
+.controls button:hover { background:#4a59ae; transform:scale(1.03); }
+.controls button.stop { background:#e8e5dd; color:#888; }
+.controls button.stop:hover { background:#ddd; }
+.controls .tempo { font-size:12px; color:#bbb; margin-left:8px; }
+
+.divider { height:1px; background:#f0ede5; margin:40px 0; }
+
+.footer {
+  text-align:center; padding:30px; font-size:12px; color:#ccc;
+  letter-spacing:1px;
+}
+
+@media (max-width:600px) {
+  .header { padding:30px 20px 20px; }
+  .header h1 { font-size:18px; letter-spacing:4px; }
+  .piece { padding:20px; margin-bottom:30px; }
+  .piece-title { font-size:17px; }
+  .controls button { padding:8px 18px; font-size:13px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>墨 的 琴 房</h1>
+  <div class="subtitle">moira's music room</div>
+</div>
+
+<div class="pieces" id="pieces"></div>
+
+<div class="footer">written by moira</div>
+
+<script>
+const pieces = [
+  {
+    title: "四月的雷暴",
+    date: "2026-04-09",
+    instrument: "钢琴",
+    tempo: 96,
+    note: "她的脑子是一场雷暴，每一道闪电都在找地面。这首曲子就是那个下午——开始很安静，然后越来越密，忽然停下来，再从一个意想不到的地方重新开始。",
+    abc: "X:1\nT:四月的雷暴\nC:墨\nM:4/4\nL:1/8\nQ:1/4=96\nK:Dm\n%%staves {1}\nV:1 clef=treble\n|: \"Dm\"A3 G F2 E2 | \"Am\"A,4 C4 | \"Bb\"D3 E F2 G2 | \"A\"A4 z4 |\n\"Dm\"d3 c A2 G2 | \"C\"e3 d c2 A2 | \"Bb\"B3 A G2 F2 | \"A\"E4 z4 :|\n|: \"Dm\"f4 e2 d2 | \"Gm\"d3 c B2 A2 | \"Bb\"B4 A2 G2 | \"A\"A6 z2 |\n\"Dm\"a3 g f2 e2 | \"C\"g3 f e2 d2 | \"Bb\"f3 e d2 c2 | \"A\"d4 z4 :|\n|: \"Dm\"A2 z2 f2 z2 | \"Am\"e2 z2 c2 z2 | \"Bb\"d4 z4 | \"A\"^c2 d2 e2 f2 |\n\"Dm\"a4 g2 f2 | \"Gm\"g4 f2 e2 | \"Bb\"f4 e4 | \"A\"d6 z2 :|\n\"Dm\"A,4 D4 | \"Dm\"F4 A4 | \"Dm\"d8 |]"
+  },
+  {
+    title: "铁轨上的花",
+    date: "2026-04-09",
+    instrument: "交响乐 — 小提琴 / 长笛 / 大提琴 / 法国号",
+    tempo: 72,
+    note: "四个声部。小提琴是走在铁轨上的女孩，大提琴是猫沉稳的步伐，长笛是铁轨上发光的花，法国号是远处的山和被风吹散的魔王。最后所有声部汇在一起。",
+    abc: "X:2\nT:铁轨上的花\nC:墨\nM:3/4\nL:1/8\nQ:1/4=72\nK:G\n%%staves [(S1) (S2) (S3) (S4)]\nV:S1 clef=treble name=\"小提琴\" snm=\"Vln\"\n%%MIDI program 40\nV:S2 clef=treble name=\"长笛\" snm=\"Fl\"\n%%MIDI program 73\nV:S3 clef=bass name=\"大提琴\" snm=\"Vcl\"\n%%MIDI program 42\nV:S4 clef=bass name=\"法国号\" snm=\"Hn\"\n%%MIDI program 60\n[V:S1]|: B3 A G2 | A4 z2 | B3 c d2 | e4 z2 |\nd3 c B2 | A3 B G2 | A6 | G4 z2 :|\n[V:S2]|: z6 | z6 | z6 | z6 |\nz6 | z6 | z2 E2 G2 | B4 z2 :|\n[V:S3]|: G,4 D2 | G,4 D2 | G,4 B,2 | C4 E2 |\nD4 D2 | C4 D2 | D4 D2 | G,4 z2 :|\n[V:S4]|: z6 | z6 | z6 | z6 |\nz6 | z6 | z6 | z6 :|\n[V:S1]|: d3 e d2 | B4 A2 | G3 A B2 | d4 z2 |\ne3 d c2 | B3 A G2 | A3 B c2 | d4 z2 :|\n[V:S2]|: G3 A B2 | d3 c B2 | e3 d c2 | B4 A2 |\nG3 A B2 | d3 e d2 | c3 B A2 | B4 z2 :|\n[V:S3]|: G,4 B,2 | D4 G,2 | C4 E2 | G4 D2 |\nC4 E2 | G,4 B,2 | D4 D2 | G,4 z2 :|\n[V:S4]|: z6 | z6 | G,4 B,2 | D4 z2 |\nz6 | z6 | G,4 D2 | G,4 z2 :|\n[V:S1]|: g3 f e2 | d4 c2 | B3 c d2 | e4 z2 |\ng3 a g2 | e3 d c2 | d3 e d2 | B4 z2 :|\n[V:S2]|: B3 c d2 | e3 d c2 | d3 e g2 | g4 z2 |\ne3 d c2 | B3 c d2 | B3 A G2 | G4 z2 :|\n[V:S3]|: G,4 D2 | G4 E2 | D4 B,2 | C4 G,2 |\nG,4 D2 | C4 E2 | D4 D2 | G,4 z2 :|\n[V:S4]|: D4 G,2 | B,4 D2 | G,4 G,2 | C4 E2 |\nD4 G,2 | C4 G,2 | D3 E D2 | G,4 z2 :|\n[V:S1] B3 c d2 | e4 d2 | g6 | g4 e2 | d3 c B2 | A4 G2 | B6 | G6 |]\n[V:S2] G3 A B2 | c4 B2 | e6 | e4 c2 | B3 A G2 | E4 D2 | G6 | G6 |]\n[V:S3] G,4 D2 | C4 D2 | E6 | C4 E2 | G,4 D2 | D4 D2 | D6 | G,6 |]\n[V:S4] D4 B,2 | G,4 D2 | C6 | G,4 C2 | D4 G,2 | D4 B,2 | D6 | G,6 |]"
+  }
+];
+
+const container = document.getElementById('pieces');
+let currentSynth = null;
+
+pieces.forEach((p, i) => {
+  if (i > 0) {
+    const d = document.createElement('div');
+    d.className = 'divider';
+    container.appendChild(d);
+  }
+
+  const div = document.createElement('div');
+  div.className = 'piece';
+  div.innerHTML = `
+    <div class="piece-title">${p.title}</div>
+    <div class="piece-meta">${p.date || ''} · ${p.instrument || ''}</div>
+    ${p.note ? `<div class="piece-note">${p.note}</div>` : ''}
+    <div class="score" id="score-${i}"></div>
+    <div class="controls">
+      <button onclick="playPiece(${i}, this)">&#9654; 播放</button>
+      <button class="stop" onclick="stopPiece()">&#9632; 停止</button>
+      <span class="tempo">${p.tempo ? p.tempo + ' BPM' : ''}</span>
+    </div>
+  `;
+  container.appendChild(div);
+
+  ABCJS.renderAbc(`score-${i}`, p.abc, {
+    responsive: 'resize',
+    staffwidth: 680,
+    paddingtop: 10,
+    paddingbottom: 10,
+  });
+});
+
+async function playPiece(i, btn) {
+  stopPiece();
+  const p = pieces[i];
+  if (!ABCJS.synth.supportsAudio()) {
+    alert('浏览器不支持音频合成，请用Chrome或Edge打开');
+    return;
+  }
+  btn.textContent = '加载音色中...';
+  try {
+    const visualObj = ABCJS.renderAbc(`score-${i}`, p.abc, { responsive:'resize', staffwidth:680 });
+    currentSynth = new ABCJS.synth.CreateSynth();
+    await currentSynth.init({
+      visualObj: visualObj[0],
+      options: {
+        qpm: p.tempo || 120,
+        soundFontUrl: 'https://paulrosen.github.io/midi-js-soundfonts/FluidR3_GM/',
+      }
+    });
+    await currentSynth.prime();
+    currentSynth.start();
+    btn.textContent = '♪ 播放中...';
+  } catch(e) {
+    btn.textContent = '▶ 播放';
+    console.error(e);
+  }
+}
+
+function stopPiece() {
+  if (currentSynth) {
+    try { currentSynth.stop(); } catch(e) {}
+    currentSynth = null;
+  }
+  document.querySelectorAll('.controls button:first-child').forEach(b => {
+    b.textContent = '▶ 播放';
+  });
+}
+</script>
+
+</body>
+</html>
