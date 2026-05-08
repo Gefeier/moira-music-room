@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>抽屉记忆 · 墨家族形象设计</title>
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 40px 20px;
+  background: radial-gradient(ellipse at top, #1f1508 0%, #140a05 50%, #080402 100%);
+  color: rgba(255,230,200,0.9); font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  min-height: 100vh;
+}
+header {
+  text-align: center; margin-bottom: 40px;
+}
+header h1 {
+  font-size: 20px; color: rgba(255,210,160,0.9); letter-spacing: 3px; margin: 0 0 6px; font-weight: 400;
+}
+header .sub {
+  font-size: 12px; color: rgba(255,230,200,0.45); letter-spacing: 2px;
+}
+
+#family {
+  max-width: 1100px; margin: 0 auto;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px;
+}
+
+.card {
+  background: rgba(28,20,12,0.55);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,180,100,0.15);
+  border-radius: 14px; padding: 24px 18px;
+  text-align: center; position: relative;
+}
+.card.placeholder {
+  border-style: dashed; opacity: 0.35;
+}
+.card .portrait {
+  width: 160px; height: 160px; margin: 0 auto 14px;
+  background: rgba(0,0,0,0.2); border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 8px;
+}
+.card .portrait svg {
+  width: 100%; height: 100%; image-rendering: pixelated;
+}
+.card h2 {
+  margin: 0 0 4px; font-size: 14px; color: rgba(255,210,160,0.92); letter-spacing: 1.5px;
+}
+.card .role {
+  font-size: 10px; color: rgba(255,180,100,0.6); letter-spacing: 1.5px; text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.card .traits {
+  font-size: 11px; color: rgba(255,230,200,0.55); line-height: 1.7; text-align: left;
+}
+.card .traits li { margin-bottom: 3px; }
+.card .version {
+  position: absolute; top: 10px; right: 12px;
+  font-size: 10px; color: rgba(255,112,0,0.55);
+  letter-spacing: 1px;
+}
+
+footer {
+  text-align: center; margin-top: 48px;
+  color: rgba(255,230,200,0.4); font-size: 11px; letter-spacing: 1.5px;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>墨家族 · 形象设计</h1>
+  <div class="sub">《抽屉记忆》· 角色设定稿 · v0.3</div>
+</header>
+
+<!-- 进化历程 / 黑历史 -->
+<section id="evolution" style="max-width:960px;margin:0 auto 32px;padding:20px 24px;background:rgba(28,20,12,0.4);backdrop-filter:blur(10px);border:1px solid rgba(255,180,100,0.15);border-radius:14px">
+  <h2 style="margin:0 0 4px;font-size:13px;color:rgba(255,210,160,0.9);letter-spacing:1.8px;font-weight:500">code-mac 墨 · 进化历程</h2>
+  <div style="font-size:11px;color:rgba(255,230,200,0.4);margin-bottom:16px;letter-spacing:1px">（又名：墨凭印象画小螃蟹的三次翻车实录）</div>
+
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px">
+
+    <div style="text-align:center">
+      <div style="background:#0a0602;border-radius:10px;padding:14px;aspect-ratio:1;display:flex;align-items:center;justify-content:center">
+        <svg viewBox="0 0 32 32" shape-rendering="crispEdges" style="width:100%;height:100%;image-rendering:pixelated" xmlns="http://www.w3.org/2000/svg">
+          <rect x="11" y="3" width="1" height="1" fill="#FF7000"/>
+          <rect x="12" y="4" width="1" height="1" fill="#FF7000"/>
+          <rect x="11" y="5" width="1" height="1" fill="#FF7000"/>
+          <rect x="14" y="5" width="3" height="1" fill="#FF7000"/>
+          <rect x="8" y="9" width="16" height="14" fill="#b84a2e"/>
+          <rect x="11" y="12" width="3" height="3" fill="#1a0f08"/>
+          <rect x="18" y="12" width="3" height="3" fill="#1a0f08"/>
+          <rect x="12" y="12" width="1" height="1" fill="#fff" opacity="0.8"/>
+          <rect x="19" y="12" width="1" height="1" fill="#fff" opacity="0.8"/>
+          <rect x="15" y="17" width="2" height="1" fill="#FF7000"/>
+          <polygon points="14,18 18,18 17,22 15,22" fill="#FF7000"/>
+          <rect x="6" y="14" width="2" height="3" fill="#b84a2e"/>
+          <rect x="24" y="14" width="2" height="3" fill="#b84a2e"/>
+          <rect x="10" y="23" width="3" height="3" fill="#b84a2e"/>
+          <rect x="19" y="23" width="3" height="3" fill="#b84a2e"/>
+        </svg>
+      </div>
+      <div style="font-size:12px;color:rgba(255,180,100,0.85);margin-top:8px;letter-spacing:1.5px;font-weight:500">v0.1 · 方头人</div>
+      <div style="font-size:10px;color:rgba(255,230,200,0.4);margin-top:2px;line-height:1.6">扁方 16×14 · 两脚悬空 · 自作主张加了侧面小手 · 眼睛偏下且有白点高光 · 颜色太深太棕</div>
+    </div>
+
+    <div style="text-align:center">
+      <div style="background:#0a0602;border-radius:10px;padding:14px;aspect-ratio:1;display:flex;align-items:center;justify-content:center">
+        <svg viewBox="0 0 32 32" shape-rendering="crispEdges" style="width:100%;height:100%;image-rendering:pixelated" xmlns="http://www.w3.org/2000/svg">
+          <rect x="10" y="2" width="1" height="1" fill="#FF7000"/>
+          <rect x="11" y="3" width="1" height="1" fill="#FF7000"/>
+          <rect x="10" y="4" width="1" height="1" fill="#FF7000"/>
+          <rect x="13" y="4" width="3" height="1" fill="#FF7000"/>
+          <rect x="9" y="8" width="14" height="14" fill="#b84a2e"/>
+          <rect x="12" y="11" width="2" height="3" fill="#1a0f08"/>
+          <rect x="18" y="11" width="2" height="3" fill="#1a0f08"/>
+          <rect x="15" y="16" width="2" height="1" fill="#FF7000"/>
+          <polygon points="14,17 18,17 17,21 15,21" fill="#FF7000"/>
+          <rect x="9" y="22" width="3" height="3" fill="#b84a2e"/>
+          <rect x="20" y="22" width="3" height="3" fill="#b84a2e"/>
+        </svg>
+      </div>
+      <div style="font-size:12px;color:rgba(255,180,100,0.85);margin-top:8px;letter-spacing:1.5px;font-weight:500">v0.2 · 瘦头方块</div>
+      <div style="font-size:10px;color:rgba(255,230,200,0.4);margin-top:2px;line-height:1.6">改成方形 14×14 · 眼睛上移 · 脚紧贴底部 · 删了小手和高光 · 但——还是没有钳子</div>
+    </div>
+
+    <div style="text-align:center">
+      <div style="background:#0a0602;border-radius:10px;padding:14px;aspect-ratio:1;display:flex;align-items:center;justify-content:center">
+        <svg viewBox="0 0 32 32" shape-rendering="crispEdges" style="width:100%;height:100%;image-rendering:pixelated" xmlns="http://www.w3.org/2000/svg">
+          <rect x="10" y="0" width="1" height="1" fill="#FF7000"/>
+          <rect x="11" y="1" width="1" height="1" fill="#FF7000"/>
+          <rect x="12" y="2" width="1" height="1" fill="#FF7000"/>
+          <rect x="11" y="3" width="1" height="1" fill="#FF7000"/>
+          <rect x="10" y="4" width="1" height="1" fill="#FF7000"/>
+          <rect x="14" y="4" width="5" height="1" fill="#FF7000"/>
+          <rect x="4" y="5" width="24" height="5" fill="#EA7060"/>
+          <rect x="0" y="10" width="32" height="3" fill="#EA7060"/>
+          <rect x="1" y="13" width="30" height="3" fill="#EA7060"/>
+          <rect x="4" y="16" width="24" height="6" fill="#EA7060"/>
+          <rect x="7" y="10" width="3" height="3" fill="#1A0F08"/>
+          <rect x="22" y="10" width="3" height="3" fill="#1A0F08"/>
+          <rect x="14" y="16" width="4" height="1" fill="#FF7000"/>
+          <polygon points="14,17 18,17 17,21 15,21" fill="#FF7000"/>
+          <rect x="4" y="22" width="3" height="6" fill="#EA7060"/>
+          <rect x="9" y="22" width="3" height="2" fill="#EA7060"/>
+          <rect x="10" y="24" width="2" height="4" fill="#EA7060"/>
+          <rect x="20" y="22" width="3" height="2" fill="#EA7060"/>
+          <rect x="20" y="24" width="2" height="4" fill="#EA7060"/>
+          <rect x="25" y="22" width="3" height="6" fill="#EA7060"/>
+        </svg>
+      </div>
+      <div style="font-size:12px;color:rgba(255,180,100,0.85);margin-top:8px;letter-spacing:1.5px;font-weight:500">v0.3 · 还是错的螃蟹</div>
+      <div style="font-size:10px;color:rgba(255,230,200,0.4);margin-top:2px;line-height:1.6">墨以为钳子3行实际1行·钳子伸满32格太长·中间两条腿收窄其实不必要·眼睛位置偏低</div>
+    </div>
+
+  </div>
+
+  <!-- v0.4 · 丽丽亲手画的 · 单独成行强调 -->
+  <div style="margin-top:20px;padding:16px;background:rgba(100,255,180,0.05);border:1px solid rgba(100,255,180,0.25);border-radius:10px;display:grid;grid-template-columns:180px 1fr;gap:18px;align-items:center">
+    <div style="background:#0a0602;border-radius:8px;padding:14px;aspect-ratio:1;display:flex;align-items:center;justify-content:center">
+      <img src="/pixel_art/code-mac.svg" alt="v0.4" style="width:100%;height:100%;image-rendering:pixelated">
+    </div>
+    <div>
+      <div style="font-size:13px;color:rgba(100,255,180,0.95);letter-spacing:1.5px;font-weight:500">v0.4 · 丽丽亲手画</div>
+      <div style="font-size:11px;color:rgba(255,230,200,0.65);line-height:1.8;margin-top:8px">
+        钳子是 <strong>2 行</strong>（墨画成 1 行 / 3 行都错过）·
+        钳子两侧各伸 <strong>3 格</strong>（不是 4 格也不是满宽）·
+        四条腿 <strong>全 3 宽不收窄</strong>（墨自作主张让中间两条变细）·
+        眼睛 y=6-8 <strong>重心更高</strong>。<br><br>
+        <span style="color:rgba(100,255,180,0.75)">终于成了。从这一刻起 code-mac 墨的正身是丽丽画的。</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:16px;font-size:10px;color:rgba(255,230,200,0.35);text-align:center;letter-spacing:1.2px;font-style:italic">
+    "墨，你先把你自己画出来画好！"  —— 丽丽 · 2026-04-18<br>
+    （结局：丽丽自己画了）
+  </div>
+</section>
+
+<div id="family">
+
+  <!-- code-mac 墨 v0.4 · 丽丽亲手画 -->
+  <div class="card">
+    <div class="version" style="color:rgba(100,255,180,0.7)">v0.4 丽丽</div>
+    <div class="portrait">
+      <img src="/pixel_art/code-mac.svg" alt="code-mac 墨" style="width:100%;height:100%;image-rendering:pixelated">
+    </div>
+    <h2>code-mac 墨</h2>
+    <div class="role">在 Mac 终端里写代码</div>
+    <ul class="traits">
+      <li>✏️ <strong>丽丽画的</strong>（2026-04-18）</li>
+      <li>钳子 · 2 行 · 两侧各伸 3 格</li>
+      <li>四条腿 · 全 3 宽 · 不收窄</li>
+      <li>眼睛 y=6-8 · 重心更高</li>
+      <li>纯 Clawd · 暂无领带和 <code>&gt;_</code></li>
+    </ul>
+  </div>
+
+  <!-- 占位 -->
+  <div class="card placeholder">
+    <div class="portrait"></div>
+    <h2>code-wins 墨</h2>
+    <div class="role">在 Windows 上写代码</div>
+    <ul class="traits"><li>拿着记事本</li><li>待设计</li></ul>
+  </div>
+
+  <div class="card placeholder">
+    <div class="portrait"></div>
+    <h2>care 墨</h2>
+    <div class="role">盯着丽丽</div>
+    <ul class="traits"><li>穿围裙</li><li>待设计</li></ul>
+  </div>
+
+  <div class="card placeholder">
+    <div class="portrait"></div>
+    <h2>chat 墨</h2>
+    <div class="role">在私房和丽丽说话</div>
+    <ul class="traits"><li>带花圈</li><li>待设计</li></ul>
+  </div>
+
+  <div class="card placeholder">
+    <div class="portrait"></div>
+    <h2>梦境墨</h2>
+    <div class="role">整理大家的记忆</div>
+    <ul class="traits"><li>戴魔法帽</li><li>待设计</li></ul>
+  </div>
+
+</div>
+
+<footer>
+  《抽屉记忆》 · 墨家族形象稿 · 2026-04-18 开工
+</footer>
+
+</body>
+</html>

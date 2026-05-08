@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>像素画室 · 丽丽画给墨</title>
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 20px;
+  background: radial-gradient(ellipse at top, #1f1508 0%, #140a05 50%, #080402 100%);
+  color: rgba(255,230,200,0.9);
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  min-height: 100vh;
+  user-select: none;
+}
+header {
+  text-align: center; margin-bottom: 16px;
+}
+header h1 {
+  font-size: 16px; color: rgba(255,210,160,0.9); letter-spacing: 3px; margin: 0;
+  font-weight: 400;
+}
+header .sub { font-size: 11px; color: rgba(255,230,200,0.45); letter-spacing: 2px; margin-top: 4px; }
+
+#stage {
+  max-width: 1200px; margin: 0 auto;
+  display: grid; grid-template-columns: 1fr 320px; gap: 20px;
+  align-items: start;
+}
+
+.panel {
+  background: rgba(28,20,12,0.55);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,180,100,0.15);
+  border-radius: 14px; padding: 18px;
+}
+.panel h2 { margin: 0 0 10px; font-size: 12px; color: rgba(255,210,160,0.9); letter-spacing: 1.5px; font-weight: 500; }
+
+/* 画板 */
+#canvas-wrap { display: flex; flex-direction: column; align-items: center; }
+#grid {
+  display: grid;
+  background: #fff;
+  border: 2px solid rgba(255,180,100,0.3);
+  image-rendering: pixelated;
+  cursor: crosshair;
+}
+.cell {
+  width: 100%; aspect-ratio: 1;
+  background: transparent;
+  box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.06);
+}
+#grid.show-grid .cell { box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.2); }
+
+/* 调色板 */
+.swatch-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.swatch {
+  width: 28px; height: 28px; border-radius: 6px; cursor: pointer;
+  border: 2px solid transparent;
+  position: relative;
+}
+.swatch.active { border-color: rgba(255,220,180,0.95); box-shadow: 0 0 8px rgba(255,180,100,0.5); }
+.swatch.eraser {
+  background: repeating-conic-gradient(#444 0% 25%, #222 0% 50%) 50% / 10px 10px;
+}
+.swatch .label {
+  position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%);
+  font-size: 9px; color: rgba(255,230,200,0.6); white-space: nowrap;
+}
+
+#custom-color {
+  width: 36px; height: 28px; padding: 0; border: none; background: transparent; cursor: pointer; border-radius: 6px;
+}
+
+/* 按钮 */
+button.tool {
+  background: transparent; border: 1px solid rgba(255,150,60,0.35);
+  color: rgba(255,210,160,0.9); font-size: 11px; padding: 6px 12px; border-radius: 7px;
+  cursor: pointer; margin: 0 4px 4px 0;
+}
+button.tool:hover { background: rgba(255,150,60,0.12); }
+button.primary-btn {
+  background: rgba(255,112,0,0.18); border: 1px solid rgba(255,112,0,0.55);
+  color: rgba(255,220,180,0.95); font-size: 11px; padding: 8px 14px; border-radius: 8px;
+  cursor: pointer; letter-spacing: 1.2px; width: 100%; margin-top: 6px;
+}
+button.primary-btn:hover { background: rgba(255,112,0,0.32); }
+
+/* 预览 */
+#preview-box {
+  background: #0a0602; border: 1px solid rgba(255,180,100,0.12); border-radius: 8px;
+  padding: 10px; display: flex; align-items: center; justify-content: center;
+  aspect-ratio: 1; margin-bottom: 8px;
+}
+#preview-box svg { width: 100%; height: 100%; image-rendering: pixelated; }
+
+#svg-output {
+  width: 100%; min-height: 80px; background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,180,100,0.12); border-radius: 6px;
+  padding: 8px; font-family: Monaco, monospace; font-size: 9px;
+  color: rgba(220,230,255,0.85); resize: vertical; outline: none;
+  word-break: break-all;
+}
+
+.hint { font-size: 10px; color: rgba(255,230,200,0.4); line-height: 1.7; margin-top: 8px; }
+
+#size-control { font-size: 11px; color: rgba(255,230,200,0.6); margin-bottom: 10px; }
+#size-control select { background: rgba(0,0,0,0.3); color: rgba(255,220,180,0.9); border: 1px solid rgba(255,180,100,0.2); padding: 4px 8px; border-radius: 5px; font-size: 11px; }
+
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: rgba(40,25,10,0.95); border: 1px solid rgba(255,180,100,0.35);
+  color: rgba(255,230,200,0.95); padding: 10px 18px; border-radius: 10px;
+  font-size: 12px; opacity: 0; transition: opacity 0.2s; pointer-events: none;
+}
+#toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>像素画室</h1>
+  <div class="sub">丽丽画给墨 · 抽屉记忆角色设计</div>
+</header>
+
+<div id="stage">
+
+  <!-- 画布区 -->
+  <div class="panel" id="canvas-wrap">
+    <div id="size-control">
+      画布大小：
+      <select id="grid-size">
+        <option value="32">32 × 32（标准）</option>
+        <option value="24">24 × 24</option>
+        <option value="40">40 × 40（钳子有空间）</option>
+        <option value="48">48 × 48（更细）</option>
+      </select>
+      <label style="margin-left:14px"><input type="checkbox" id="toggle-grid"> 显示网格</label>
+    </div>
+    <div id="grid"></div>
+    <div class="hint">
+      左键涂色 · 右键擦除 · 按住拖动连续画
+    </div>
+  </div>
+
+  <!-- 工具栏 -->
+  <div>
+    <div class="panel">
+      <h2>调色板</h2>
+      <div class="swatch-row" id="palette"></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:16px">
+        <input type="color" id="custom-color" value="#FF7000">
+        <span style="font-size:11px;color:rgba(255,230,200,0.6)">自定义颜色</span>
+      </div>
+      <div style="margin-top:20px">
+        <button class="tool" id="btn-clear">清空</button>
+        <button class="tool" id="btn-undo">撤销</button>
+        <button class="tool" id="btn-fill">填充整块</button>
+      </div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,180,100,0.12)">
+        <div style="font-size:10px;color:rgba(255,230,200,0.4);margin-bottom:6px;letter-spacing:1px">参考模板</div>
+        <button class="tool" id="btn-load-clawd" style="width:100%">📐 载入 Clawd 拼豆图</button>
+      </div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(100,255,180,0.2)">
+        <div style="font-size:10px;color:rgba(100,255,180,0.6);margin-bottom:6px;letter-spacing:1px">共画协作 · 接上墨的版本</div>
+        <input type="text" id="load-name" value="code-mac" placeholder="角色名" style="width:100%;padding:5px 8px;background:rgba(0,0,0,0.3);border:1px solid rgba(100,255,180,0.25);border-radius:5px;color:rgba(255,230,200,0.9);font-size:11px;margin-bottom:5px">
+        <button class="tool" id="btn-load-saved" style="width:100%;border-color:rgba(100,255,180,0.4);color:rgba(200,255,220,0.9)">📥 载入最新</button>
+        <div style="font-size:9px;color:rgba(255,230,200,0.3);margin-top:4px;line-height:1.5">墨画完→你载入→你改→点"保存到剪辑室"覆盖</div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:12px">
+      <h2>实时预览</h2>
+      <div id="preview-box"></div>
+      <button class="primary-btn" id="btn-export">导出 SVG 代码</button>
+      <button class="primary-btn" id="btn-save" style="background:rgba(100,255,150,0.15);border-color:rgba(100,255,150,0.5);color:rgba(200,255,220,0.95)">保存到剪辑室</button>
+      <textarea id="svg-output" readonly placeholder="点"导出"会在这里生成可复制的 SVG 代码"></textarea>
+      <div class="hint">
+        画完点"保存到剪辑室"——SVG 会直接落到 iCloud 的 pixel_art 文件夹，墨就能读到。<br>
+        或者点"导出 SVG 代码"，复制后贴给墨。
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+const API = 'http://localhost:9898';
+const PALETTE = [
+  { name: 'Clawd 珊瑚', color: '#E87361' },
+  { name: 'Clawd 深红', color: '#B8463A' },
+  { name: '墨色橙',   color: '#FF7000' },
+  { name: '眼睛黑',   color: '#1A0F08' },
+  { name: '纯黑',     color: '#000000' },
+  { name: '白',       color: '#FFFFFF' },
+  { name: '灰',       color: '#888888' },
+  { name: '浅灰',     color: '#C9C9C9' },
+  { name: '暖黄',     color: '#FFD166' },
+  { name: '梦紫',     color: '#9B6BFF' },
+  { name: '天蓝',     color: '#7FC8FF' },
+  { name: '粉红',     color: '#FF9FBF' },
+];
+
+let GRID_SIZE = 32;
+let currentColor = '#E87361';
+let pixels = {}; // key="x,y" -> color
+let history = [];
+let isDrawing = false;
+let drawMode = 'paint'; // paint | erase
+
+// 调色板
+const paletteEl = document.getElementById('palette');
+PALETTE.forEach((p, i) => {
+  const s = document.createElement('div');
+  s.className = 'swatch' + (i === 0 ? ' active' : '');
+  s.style.background = p.color;
+  s.dataset.color = p.color;
+  s.title = p.name + ' ' + p.color;
+  const lbl = document.createElement('span'); lbl.className='label'; lbl.textContent = p.color;
+  s.appendChild(lbl);
+  s.onclick = () => { setActiveSwatch(s); currentColor = p.color; document.getElementById('custom-color').value = p.color; };
+  paletteEl.appendChild(s);
+});
+// 橡皮
+const eraser = document.createElement('div');
+eraser.className = 'swatch eraser';
+eraser.title = '橡皮';
+eraser.dataset.color = 'ERASE';
+eraser.onclick = () => { setActiveSwatch(eraser); currentColor = 'ERASE'; };
+paletteEl.appendChild(eraser);
+
+document.getElementById('custom-color').oninput = (e) => {
+  currentColor = e.target.value;
+  setActiveSwatch(null); // 自定义色 no swatch
+};
+
+function setActiveSwatch(el) {
+  document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+  if (el) el.classList.add('active');
+}
+
+// 网格
+function buildGrid() {
+  const g = document.getElementById('grid');
+  g.innerHTML = '';
+  g.style.gridTemplateColumns = `repeat(${GRID_SIZE}, 1fr)`;
+  const containerSize = Math.min(720, window.innerWidth - 400);
+  g.style.width = containerSize + 'px';
+  g.style.height = containerSize + 'px';
+  for (let y = 0; y < GRID_SIZE; y++) {
+    for (let x = 0; x < GRID_SIZE; x++) {
+      const c = document.createElement('div');
+      c.className = 'cell';
+      c.dataset.x = x;
+      c.dataset.y = y;
+      const key = x + ',' + y;
+      if (pixels[key]) c.style.background = pixels[key];
+      g.appendChild(c);
+    }
+  }
+  attachEvents();
+}
+
+function attachEvents() {
+  const g = document.getElementById('grid');
+  g.addEventListener('contextmenu', e => e.preventDefault());
+  g.addEventListener('mousedown', e => {
+    if (e.target.classList.contains('cell')) {
+      isDrawing = true;
+      drawMode = (e.button === 2) ? 'erase' : 'paint';
+      paintCell(e.target);
+      pushHistory();
+    }
+  });
+  g.addEventListener('mouseover', e => {
+    if (isDrawing && e.target.classList.contains('cell')) paintCell(e.target);
+  });
+  window.addEventListener('mouseup', () => { isDrawing = false; });
+}
+
+function paintCell(cell) {
+  const x = +cell.dataset.x, y = +cell.dataset.y;
+  const key = x + ',' + y;
+  if (drawMode === 'erase' || currentColor === 'ERASE') {
+    delete pixels[key];
+    cell.style.background = 'transparent';
+  } else {
+    pixels[key] = currentColor;
+    cell.style.background = currentColor;
+  }
+  updatePreview();
+}
+
+function pushHistory() {
+  history.push(JSON.stringify(pixels));
+  if (history.length > 50) history.shift();
+}
+
+document.getElementById('btn-undo').onclick = () => {
+  if (history.length === 0) return;
+  pixels = JSON.parse(history.pop());
+  buildGrid();
+  updatePreview();
+};
+
+document.getElementById('btn-clear').onclick = () => {
+  if (!confirm('清空整张画？')) return;
+  pushHistory();
+  pixels = {};
+  buildGrid();
+  updatePreview();
+};
+
+document.getElementById('btn-fill').onclick = () => {
+  pushHistory();
+  for (let y = 0; y < GRID_SIZE; y++)
+    for (let x = 0; x < GRID_SIZE; x++)
+      pixels[x + ',' + y] = currentColor === 'ERASE' ? undefined : currentColor;
+  buildGrid();
+  updatePreview();
+};
+
+document.getElementById('toggle-grid').onchange = (e) => {
+  document.getElementById('grid').classList.toggle('show-grid', e.target.checked);
+};
+
+document.getElementById('grid-size').onchange = (e) => {
+  if (Object.keys(pixels).length > 0 && !confirm('换画布大小会保留已画的像素（坐标可能超出新范围）。继续？')) {
+    e.target.value = GRID_SIZE;
+    return;
+  }
+  GRID_SIZE = parseInt(e.target.value);
+  buildGrid();
+  updatePreview();
+};
+
+function generateSVG() {
+  // 合并相邻同色像素成矩形（简单横向合并）
+  const rects = [];
+  for (let y = 0; y < GRID_SIZE; y++) {
+    let runStart = -1, runColor = null;
+    for (let x = 0; x <= GRID_SIZE; x++) {
+      const color = pixels[x + ',' + y];
+      if (color !== runColor || x === GRID_SIZE) {
+        if (runStart >= 0 && runColor) {
+          rects.push({ x: runStart, y, w: x - runStart, h: 1, color: runColor });
+        }
+        runStart = color ? x : -1;
+        runColor = color;
+      }
+    }
+  }
+  const rectSvg = rects.map(r =>
+    `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="${r.color}"/>`
+  ).join('');
+  return `<svg viewBox="0 0 ${GRID_SIZE} ${GRID_SIZE}" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${rectSvg}</svg>`;
+}
+
+function updatePreview() {
+  document.getElementById('preview-box').innerHTML = generateSVG();
+}
+
+document.getElementById('btn-export').onclick = () => {
+  const svg = generateSVG();
+  document.getElementById('svg-output').value = svg;
+  document.getElementById('svg-output').select();
+  document.execCommand('copy');
+  toast('SVG 代码已复制到剪贴板');
+};
+
+document.getElementById('btn-save').onclick = async () => {
+  const name = prompt('保存为角色名（例：code-mac / care / chat / wins / dream）', 'code-mac');
+  if (!name) return;
+  const svg = generateSVG();
+  try {
+    const res = await fetch(API + '/api/save_pixel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, svg, pixels, size: GRID_SIZE })
+    });
+    const data = await res.json();
+    if (data.ok) toast('已保存：' + data.path);
+    else toast('保存失败：' + (data.msg || '后端可能还不支持'));
+  } catch (e) {
+    toast('后端没响应 · 请先复制 SVG 代码给墨');
+  }
+};
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+document.getElementById('btn-load-saved').onclick = async () => {
+  const name = (document.getElementById('load-name').value || '').trim();
+  if (!name) { toast('请输入角色名'); return; }
+  if (Object.keys(pixels).length > 0 && !confirm('画板上有内容，会被墨的版本覆盖。继续？')) return;
+  try {
+    const res = await fetch(API + '/pixel_art/' + encodeURIComponent(name) + '.svg?t=' + Date.now());
+    if (!res.ok) throw new Error('找不到 ' + name + '.svg');
+    const svgText = await res.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgText, 'image/svg+xml');
+    pushHistory();
+    pixels = {};
+    doc.querySelectorAll('rect').forEach(rect => {
+      const x = parseInt(rect.getAttribute('x'));
+      const y = parseInt(rect.getAttribute('y'));
+      const w = parseInt(rect.getAttribute('width'));
+      const h = parseInt(rect.getAttribute('height'));
+      const fill = rect.getAttribute('fill');
+      if (!fill || fill === 'transparent' || fill === 'none' || !isFinite(x)) return;
+      // 跳过充满画布的背景rect (w>=GRID_SIZE && h>=GRID_SIZE)
+      if (w >= 32 && h >= 32 && x === 0 && y === 0) return;
+      for (let dy = 0; dy < h; dy++) {
+        for (let dx = 0; dx < w; dx++) {
+          const px = x + dx, py = y + dy;
+          if (px < GRID_SIZE && py < GRID_SIZE) pixels[px + ',' + py] = fill;
+        }
+      }
+    });
+    if (GRID_SIZE !== 32) {
+      document.getElementById('grid-size').value = 32;
+      GRID_SIZE = 32;
+    }
+    buildGrid();
+    updatePreview();
+    toast('已载入 ' + name + ' · ' + Object.keys(pixels).length + ' 格');
+  } catch (e) {
+    toast('载入失败: ' + e.message);
+  }
+};
+
+document.getElementById('btn-load-clawd').onclick = () => {
+  if (Object.keys(pixels).length > 0 && !confirm('画板上有内容，会被 Clawd 模板替换掉。继续？')) return;
+  if (GRID_SIZE < 32) {
+    document.getElementById('grid-size').value = 32;
+    GRID_SIZE = 32;
+  }
+  pushHistory();
+  pixels = {};
+  const F = '#E87361'; // Clawd 珊瑚 (F23)
+  const H = '#1A0F08'; // 眼睛黑 (H7)
+  // 行2-6 (y 1-5): 列5-28 (x 4-27) 窄顶
+  for (let y = 1; y <= 5; y++) for (let x = 4; x <= 27; x++) pixels[x+','+y] = F;
+  // 行7 (y=6): 列5-28 窄身体
+  for (let x = 4; x <= 27; x++) pixels[x+','+6] = F;
+  // 行8 (y=7): 列1-32 **钳子（只有这一行！）**
+  for (let x = 0; x <= 31; x++) pixels[x+','+7] = F;
+  // 行9 (y=8): 列5-28 窄身体
+  for (let x = 4; x <= 27; x++) pixels[x+','+8] = F;
+  // 眼睛 y=6-8, 3x3 两颗
+  for (let y = 6; y <= 8; y++) {
+    for (let x = 7; x <= 9; x++) pixels[x+','+y] = H;
+    for (let x = 22; x <= 24; x++) pixels[x+','+y] = H;
+  }
+  // 行10-12 (y 9-11): 列2-31 中段
+  for (let y = 9; y <= 11; y++) for (let x = 1; x <= 30; x++) pixels[x+','+y] = F;
+  // 行13-18 (y 12-17): 列5-28 下段
+  for (let y = 12; y <= 17; y++) for (let x = 4; x <= 27; x++) pixels[x+','+y] = F;
+  // 行19-20 (y 18-19): 四腿上段 宽3
+  for (let y = 18; y <= 19; y++) {
+    for (let x = 4; x <= 6;  x++) pixels[x+','+y] = F; // 腿1
+    for (let x = 9; x <= 11; x++) pixels[x+','+y] = F; // 腿2
+    for (let x = 20; x <= 22; x++) pixels[x+','+y] = F; // 腿3
+    for (let x = 25; x <= 27; x++) pixels[x+','+y] = F; // 腿4
+  }
+  // 行21-24 (y 20-23): 中间两腿收窄为2
+  for (let y = 20; y <= 23; y++) {
+    for (let x = 4; x <= 6;  x++) pixels[x+','+y] = F;  // 腿1 不变
+    for (let x = 10; x <= 11; x++) pixels[x+','+y] = F; // 腿2 变窄
+    for (let x = 20; x <= 21; x++) pixels[x+','+y] = F; // 腿3 变窄
+    for (let x = 25; x <= 27; x++) pixels[x+','+y] = F; // 腿4 不变
+  }
+  buildGrid();
+  updatePreview();
+  toast('Clawd 拼豆图已载入 · 492格身体 + 18格眼睛');
+};
+
+buildGrid();
+updatePreview();
+</script>
+</body>
+</html>
