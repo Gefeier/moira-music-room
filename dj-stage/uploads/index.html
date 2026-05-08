@@ -1,0 +1,3268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>创意工坊</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@200;300;400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+<script type="module">
+  // Load @strudel/web as ES module and expose the API on window
+  try {
+    const mod = await import('https://unpkg.com/@strudel/web@1.0.2/dist/index.mjs');
+    window.initStrudel = mod.initStrudel;
+    window.evaluate = mod.evaluate;
+    window.hush = mod.hush;
+    window.__strudelReady = true;
+    window.dispatchEvent(new Event('strudel-loaded'));
+  } catch(e) {
+    console.error('Strudel load failed:', e);
+    window.__strudelError = e;
+  }
+</script>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  /* 深墨紫 · 粉金 · 玫瑰调——夜晚的创作空间 */
+  --void: #0a0714;           /* 深墨紫黑,几乎是夜 */
+  --deep: #1a0f28;           /* 深紫 */
+  --ink: #241538;            /* 墨紫 */
+  --surface: #3a2050;        /* 酒紫 */
+  --border: rgba(200, 160, 220, 0.14);
+  --border-active: rgba(255, 180, 220, 0.4);
+  --glow: #d890a8;           /* 玫瑰金 */
+  --glow-soft: rgba(255, 180, 210, 0.15);
+  --warm: #f0cdd8;           /* 暖粉 */
+  --text-primary: #eadce4;   /* 微粉白 */
+  --text-secondary: #b09abc; /* 紫灰 */
+  --text-dim: #7a6788;       /* 紫灰暗 */
+  --accent-blue: #b294d8;    /* 淡紫(保留一点冷调做对比) */
+  --accent-amber: #e8a878;   /* 温暖琥珀 */
+  --accent-cyan: #9cc4b5;    /* 薄荷灰(调低饱和度更融入) */
+  --accent-rose: #ff9cb0;    /* 亮玫瑰 */
+  --sidebar-w: 240px;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--void);
+  font-family: 'Noto Serif SC', serif;
+  color: var(--text-primary);
+  cursor: default;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Noise texture overlay for depth */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+/* ================================================================
+   LAYOUT: Sidebar + Main
+   ================================================================ */
+#app {
+  display: flex;
+  width: 100%; height: 100%;
+}
+
+/* ---- Sidebar ---- */
+#sidebar {
+  width: var(--sidebar-w);
+  min-width: var(--sidebar-w);
+  height: 100%;
+  background: var(--deep);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  z-index: 80;
+}
+
+.sidebar-header {
+  padding: 30px 24px 22px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+/* Warm glow behind header */
+.sidebar-header::before {
+  content: '';
+  position: absolute;
+  top: -20px; left: -20px;
+  width: 160px; height: 100px;
+  background: radial-gradient(ellipse, rgba(200, 180, 120, 0.08), transparent 70%);
+  pointer-events: none;
+}
+.sidebar-title {
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: 5px;
+  color: var(--warm);
+  margin-bottom: 7px;
+  position: relative;
+}
+.sidebar-sub {
+  font-size: 11px;
+  font-weight: 300;
+  letter-spacing: 4px;
+  color: var(--text-dim);
+  position: relative;
+}
+
+.sidebar-projects {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100,115,155,0.15) transparent;
+}
+
+.project-item {
+  padding: 15px 24px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  position: relative;
+  border-left: 3px solid transparent;
+}
+.project-item:hover {
+  background: rgba(200, 180, 120, 0.04);
+}
+.project-item.active {
+  background: linear-gradient(90deg, rgba(200, 180, 120, 0.08), transparent 80%);
+  border-left-color: var(--glow);
+}
+
+.project-name {
+  font-size: 13.5px;
+  font-weight: 400;
+  letter-spacing: 1.5px;
+  margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-primary);
+}
+.project-item.active .project-name { color: var(--warm); }
+
+.status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.status-dot.draft {
+  background: var(--accent-blue);
+  box-shadow: 0 0 8px rgba(107, 159, 212, 0.5);
+}
+.status-dot.wip {
+  background: var(--accent-amber);
+  box-shadow: 0 0 8px rgba(218, 176, 96, 0.5);
+}
+.status-dot.done {
+  background: var(--accent-cyan);
+  box-shadow: 0 0 8px rgba(107, 207, 184, 0.5);
+}
+
+.project-desc {
+  font-size: 11.5px;
+  font-weight: 300;
+  color: var(--text-dim);
+  letter-spacing: 0.8px;
+  line-height: 1.6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-left: 18px;
+}
+
+.sidebar-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+}
+.btn-new-project {
+  width: 100%;
+  padding: 11px;
+  background: rgba(200, 180, 120, 0.04);
+  border: 1px dashed rgba(200, 180, 120, 0.2);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-family: 'Noto Serif SC', serif;
+  font-size: 12px;
+  letter-spacing: 3px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.btn-new-project:hover {
+  border-color: rgba(200, 180, 120, 0.4);
+  color: var(--warm);
+  background: rgba(200, 180, 120, 0.08);
+}
+
+/* ---- Main Panel ---- */
+#main {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  background: var(--void);
+}
+
+/* Top bar */
+.main-topbar {
+  height: 46px;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  padding: 0 28px;
+  border-bottom: 1px solid var(--border);
+  gap: 2px;
+  background: var(--deep);
+}
+
+.tab-btn {
+  padding: 10px 18px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 12.5px;
+  font-weight: 300;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.3s ease;
+  position: relative;
+}
+.tab-btn:hover { color: var(--text-secondary); }
+.tab-btn.active { color: var(--warm); }
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; left: 18px; right: 18px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--glow), transparent);
+  border-radius: 1px;
+}
+
+.topbar-spacer { flex: 1; }
+
+.topbar-project-name {
+  font-size: 11.5px;
+  font-weight: 300;
+  letter-spacing: 3px;
+  color: var(--text-dim);
+}
+
+/* Main content area */
+.main-content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ---- Welcome (empty state) ---- */
+#welcome {
+  position: absolute; inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  transition: opacity 0.6s ease;
+  background: radial-gradient(ellipse at 50% 45%, rgba(200, 180, 120, 0.04), transparent 60%);
+}
+#welcome.hidden { opacity: 0; pointer-events: none; }
+
+.welcome-text {
+  font-size: 24px;
+  font-weight: 300;
+  letter-spacing: 10px;
+  color: var(--warm);
+  margin-bottom: 18px;
+  animation: breathe 5s ease infinite;
+}
+.welcome-sub {
+  font-size: 13px;
+  font-weight: 300;
+  letter-spacing: 4px;
+  color: var(--text-dim);
+}
+
+/* ---- Workspace View ---- */
+#workspace {
+  position: absolute; inset: 0;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+#workspace.active { opacity: 1; pointer-events: all; }
+
+/* Preview area */
+.ws-preview {
+  flex: 6;
+  position: relative;
+  background: #151a2a;
+  overflow: hidden;
+  min-height: 200px;
+}
+
+#ws-canvas-container {
+  position: absolute; inset: 0;
+}
+#ws-canvas-container canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+#ws-text-layer {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.ws-controls {
+  position: absolute;
+  bottom: 16px; left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  z-index: 10;
+  padding: 6px 14px;
+  background: rgba(28, 35, 51, 0.85);
+  border: 1px solid rgba(140, 160, 200, 0.12);
+  border-radius: 6px;
+  backdrop-filter: blur(12px);
+  opacity: 0.5;
+  transition: opacity 0.4s ease;
+}
+.ws-preview:hover .ws-controls { opacity: 1; }
+
+.ctrl-btn {
+  width: 30px; height: 30px;
+  background: transparent;
+  border: 1px solid rgba(200, 180, 120, 0.2);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-family: 'Noto Serif SC', serif;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s ease;
+}
+.ctrl-btn:hover {
+  border-color: var(--glow);
+  color: var(--warm);
+  background: rgba(200, 180, 120, 0.08);
+}
+
+.ws-progress {
+  width: 180px; height: 2px;
+  background: rgba(140, 160, 200, 0.1);
+  border-radius: 1px;
+}
+.ws-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-amber), var(--accent-cyan));
+  border-radius: 1px;
+  width: 0%;
+  transition: width 0.3s linear;
+}
+
+/* ================================================================
+   DJ STATION — 莫奈水彩 + 老电台旋钮
+   ================================================================ */
+#dj-station {
+  display: none;
+  width: 100%; height: 100%;
+  flex-direction: column;
+  padding: 28px 32px;
+  overflow-y: auto;
+  position: relative;
+  background:
+    radial-gradient(ellipse 60% 40% at 20% 20%, rgba(180,140,200,0.12), transparent 60%),
+    radial-gradient(ellipse 50% 50% at 80% 30%, rgba(255,180,210,0.10), transparent 65%),
+    radial-gradient(ellipse 70% 50% at 50% 85%, rgba(140,200,220,0.08), transparent 60%),
+    linear-gradient(135deg, var(--void) 0%, #120a1e 50%, var(--deep) 100%);
+}
+#dj-station::before {
+  /* 纸纹+笔触感 */
+  content: '';
+  position: absolute; inset: 0;
+  pointer-events: none;
+  opacity: 0.06;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' seed='2'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 0.7  0 0 0 0 0.9  0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+#dj-station.active { display: flex; }
+.dj-topstrip {
+  display: flex; gap: 12px; align-items: center;
+  padding: 12px 14px;
+  background: rgba(50,60,98,0.4);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.dj-file-btn {
+  padding: 8px 14px;
+  background: rgba(200,180,120,0.1);
+  border: 1px solid rgba(200,180,120,0.3);
+  color: var(--warm); font-size: 12px; font-family: inherit;
+  border-radius: 6px; cursor: pointer;
+  letter-spacing: 0.5px;
+  transition: all 0.15s;
+}
+.dj-file-btn:hover { background: rgba(200,180,120,0.2); border-color: var(--accent-amber); }
+.dj-play, .dj-loop, .dj-reset {
+  padding: 8px 16px; background: transparent;
+  border: 1px solid var(--border); color: var(--text-primary);
+  font-family: inherit; font-size: 13px; border-radius: 6px;
+  cursor: pointer; transition: all 0.15s;
+}
+.dj-play {
+  font-size: 16px; min-width: 44px;
+  border-color: rgba(107,207,184,0.4); color: var(--accent-cyan);
+}
+.dj-play.playing {
+  background: rgba(107,207,184,0.15); border-color: var(--accent-cyan);
+}
+.dj-loop.active { background: rgba(218,176,96,0.15); border-color: var(--accent-amber); color: var(--warm); }
+.dj-play:hover, .dj-loop:hover, .dj-reset:hover { border-color: var(--text-secondary); }
+.dj-track-name {
+  font-size: 12px; color: var(--text-secondary);
+  font-family: monospace; letter-spacing: 0.5px;
+  flex: 1; min-width: 200px;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.dj-spacer { flex: 1; }
+#dj-waveform {
+  width: 100%; height: 90px;
+  background: rgba(28,35,51,0.6);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  display: block;
+}
+.dj-knobs-grid {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  gap: 18px;
+  margin-bottom: 14px;
+  z-index: 2;
+}
+@media (max-width: 1100px) { .dj-knobs-grid { grid-template-columns: 1fr 1fr; } }
+
+.dj-knob-group {
+  background: rgba(36,21,56,0.6);
+  border: 1px solid rgba(255,180,210,0.12);
+  border-radius: 14px;
+  padding: 16px 18px 18px;
+  min-width: 0;
+  box-shadow:
+    0 8px 24px rgba(0,0,0,0.35),
+    inset 0 1px 0 rgba(255,220,230,0.05);
+  position: relative;
+  backdrop-filter: blur(6px);
+}
+/* 水彩晕染去掉 - 在深紫背景上变成污点 */
+.dj-group-label {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 11px; letter-spacing: 4px;
+  color: rgba(255,180,210,0.55);
+  margin-bottom: 16px;
+  font-style: italic;
+  font-weight: 300;
+}
+.dj-knobs-row { display: flex; gap: 22px; align-items: flex-end; justify-content: center; }
+
+/* 线性 Fader (垂直滑块,DJ台经典) */
+.dj-knob {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px;
+  width: 56px;
+}
+.dj-knob-label {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 10px; letter-spacing: 2px;
+  color: rgba(240,205,216,0.75);
+  font-style: italic;
+  text-transform: lowercase;
+}
+.dj-knob-val {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 10px;
+  color: rgba(216,144,168,0.9);
+  font-style: italic;
+  min-height: 14px;
+  letter-spacing: 0.5px;
+}
+.dj-fader-track {
+  position: relative;
+  width: 30px; height: 140px;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
+}
+/* 凹槽: 深色内阴影,像刻在金属上的沟 */
+.dj-fader-groove {
+  position: absolute;
+  left: 50%; top: 0; bottom: 0;
+  width: 5px;
+  transform: translateX(-50%);
+  background: linear-gradient(to right,
+    rgba(0,0,0,0.2) 0%,
+    rgba(0,0,0,0.6) 30%,
+    rgba(0,0,0,0.75) 50%,
+    rgba(0,0,0,0.6) 70%,
+    rgba(0,0,0,0.2) 100%);
+  border-radius: 3px;
+  box-shadow:
+    inset 0 1px 2px rgba(0,0,0,0.9),
+    inset 0 -1px 1px rgba(255,220,230,0.06);
+}
+/* 侧边的小刻度线 */
+.dj-fader-ticks {
+  position: absolute;
+  left: 50%; top: 8px; bottom: 8px;
+  width: 24px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.dj-fader-ticks::before,
+.dj-fader-ticks::after {
+  content: '';
+  position: absolute;
+  width: 4px; height: 1px;
+  background: rgba(255,180,210,0.25);
+}
+.dj-fader-ticks::before { left: 0; top: 50%; }
+.dj-fader-ticks::after  { right: 0; top: 50%; }
+.dj-fader-tick {
+  position: absolute;
+  width: 3px; height: 1px;
+  background: rgba(255,180,210,0.18);
+  left: 0;
+}
+/* 滑块 handle: 金属质感 + 粉金刻线 */
+.dj-fader-handle {
+  position: absolute;
+  left: 50%;
+  width: 28px; height: 16px;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(180deg,
+    rgba(240,220,230,0.95) 0%,
+    rgba(200,170,190,0.9) 15%,
+    rgba(140,100,130,0.9) 50%,
+    rgba(80,50,90,0.95) 85%,
+    rgba(50,30,60,1) 100%);
+  border-radius: 3px;
+  /* 默认: 只有底部阴影,不发光 */
+  box-shadow:
+    0 2px 4px rgba(0,0,0,0.55),
+    inset 0 1px 0 rgba(255,230,240,0.55),
+    inset 0 -1px 0 rgba(30,15,40,0.6);
+  cursor: ns-resize;
+  transition: box-shadow 0.15s;
+}
+.dj-fader-handle::before {
+  /* 正中粉金刻线 */
+  content: '';
+  position: absolute;
+  left: 15%; right: 15%;
+  top: 50%; height: 1px;
+  background: linear-gradient(to right, transparent, rgba(255,180,210,0.9), transparent);
+  box-shadow: 0 1px 0 rgba(30,15,40,0.8);
+}
+.dj-fader-handle:hover {
+  box-shadow:
+    0 2px 6px rgba(0,0,0,0.7),
+    0 0 8px rgba(255,180,210,0.3),
+    inset 0 1px 0 rgba(255,230,240,0.7),
+    inset 0 -1px 0 rgba(30,15,40,0.6);
+}
+.dj-fader-handle.dragging {
+  cursor: grabbing;
+  box-shadow:
+    0 3px 7px rgba(0,0,0,0.75),
+    0 0 12px rgba(255,180,210,0.5),
+    inset 0 1px 0 rgba(255,230,240,0.8),
+    inset 0 -1px 0 rgba(30,15,40,0.6);
+}
+
+.dj-hint {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 11px;
+  color: rgba(240,205,216,0.55);
+  padding: 12px 18px;
+  background: rgba(28,15,40,0.5);
+  border-radius: 8px;
+  border-left: 2px solid rgba(255,180,210,0.4);
+  line-height: 1.8;
+  font-style: italic;
+  letter-spacing: 0.5px;
+  z-index: 2;
+}
+
+.ws-scene-label {
+  position: absolute;
+  top: 16px; left: 20px;
+  font-size: 12px;
+  font-weight: 300;
+  letter-spacing: 3px;
+  color: rgba(200, 180, 120, 0.4);
+  z-index: 10;
+}
+
+.ws-scene-selector {
+  position: absolute;
+  top: 14px; right: 18px;
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+}
+.scene-pill {
+  padding: 5px 14px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: var(--text-secondary);
+  background: rgba(28, 35, 51, 0.85);
+  border: 1px solid rgba(140, 160, 200, 0.12);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  backdrop-filter: blur(8px);
+}
+.scene-pill:hover {
+  border-color: rgba(200, 180, 120, 0.3);
+  color: var(--text-primary);
+}
+.scene-pill.active {
+  border-color: var(--glow);
+  color: var(--warm);
+  background: rgba(200, 180, 120, 0.08);
+}
+
+.ws-no-scene {
+  position: absolute; inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 300;
+  letter-spacing: 5px;
+  color: var(--text-dim);
+  background: radial-gradient(ellipse at 50% 50%, rgba(200, 180, 120, 0.03), transparent 50%);
+}
+
+/* Divider */
+.ws-divider {
+  height: 1px;
+  background: var(--border);
+  position: relative;
+  cursor: ns-resize;
+}
+.ws-divider::before {
+  content: '';
+  position: absolute;
+  left: 50%; top: -1px;
+  transform: translateX(-50%);
+  width: 40px; height: 3px;
+  border-radius: 2px;
+  background: rgba(200, 180, 120, 0.15);
+  transition: background 0.3s ease;
+}
+.ws-divider:hover::before {
+  background: rgba(200, 180, 120, 0.3);
+}
+
+/* Notes area */
+.ws-notes {
+  flex: 4;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, var(--deep), #1f253c);
+  min-height: 120px;
+  overflow: hidden;
+}
+
+.notes-header {
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid var(--border);
+  height: 38px;
+  min-height: 38px;
+}
+.notes-tabs {
+  display: flex;
+  gap: 2px;
+}
+.notes-tab {
+  padding: 8px 14px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 11.5px;
+  font-weight: 300;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.25s ease;
+  position: relative;
+}
+.notes-tab:hover { color: var(--text-secondary); }
+.notes-tab.active { color: var(--warm); }
+.notes-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; left: 14px; right: 14px;
+  height: 1.5px;
+  background: linear-gradient(90deg, transparent, var(--glow), transparent);
+}
+.notes-panel {
+  flex: 1;
+  overflow: hidden;
+}
+.notes-panel.hidden { display: none; }
+.notes-meta {
+  font-size: 10.5px;
+  font-weight: 300;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+}
+
+.notes-body {
+  flex: 1;
+  padding: 16px 24px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100,115,155,0.12) transparent;
+}
+
+.notes-textarea {
+  width: 100%;
+  min-height: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 13.5px;
+  font-weight: 300;
+  line-height: 2.1;
+  letter-spacing: 0.8px;
+  color: var(--text-primary);
+  caret-color: var(--glow);
+}
+.notes-textarea::placeholder {
+  color: var(--text-dim);
+  letter-spacing: 2px;
+}
+
+/* ---- Preview (immersive) View ---- */
+#immersive {
+  position: fixed; inset: 0;
+  z-index: 200;
+  background: #0e1220;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.8s ease, visibility 0.8s ease;
+}
+#immersive.active { opacity: 1; visibility: visible; }
+
+#imm-canvas { position: absolute; inset: 0; z-index: 1; }
+#imm-canvas canvas { display: block; width: 100% !important; height: 100% !important; }
+#imm-text { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+
+#imm-ui {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  z-index: 20; padding: 30px 40px;
+  pointer-events: none;
+}
+.imm-scene-name {
+  font-size: 12px; font-weight: 300;
+  letter-spacing: 4px;
+  color: rgba(200, 180, 120, 0.35);
+  margin-bottom: 14px;
+}
+.imm-progress { width: 100%; height: 2px; background: rgba(140,160,200,0.08); border-radius: 1px; }
+.imm-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent-amber), var(--accent-cyan)); border-radius: 1px; width: 0%; transition: width 0.3s linear; }
+
+#imm-start {
+  position: absolute; inset: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(14, 18, 32, 0.8);
+  cursor: pointer;
+  transition: opacity 0.8s ease;
+}
+#imm-start.hidden { opacity: 0; pointer-events: none; }
+#imm-start span {
+  font-size: 14px; font-weight: 300;
+  letter-spacing: 10px;
+  color: var(--warm);
+  animation: breathe 4s ease infinite;
+}
+
+.imm-back {
+  position: fixed; top: 20px; left: 24px;
+  font-size: 12px; font-weight: 300;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  z-index: 210;
+  cursor: pointer;
+  padding: 8px 16px;
+  border: 1px solid rgba(140, 160, 200, 0.12);
+  border-radius: 4px;
+  background: rgba(28, 35, 51, 0.7);
+  backdrop-filter: blur(8px);
+  transition: all 0.3s ease;
+  opacity: 0.5;
+}
+.imm-back:hover {
+  opacity: 1;
+  color: var(--warm);
+  border-color: rgba(200, 180, 120, 0.3);
+}
+
+/* ---- New Project Modal ---- */
+#modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(14, 18, 32, 0.7);
+  z-index: 300;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; visibility: hidden;
+  transition: opacity 0.4s ease, visibility 0.4s ease;
+  backdrop-filter: blur(8px);
+}
+#modal-overlay.active { opacity: 1; visibility: visible; }
+
+.modal {
+  width: 380px;
+  padding: 36px;
+  background: var(--ink);
+  border: 1px solid rgba(200, 180, 120, 0.12);
+  border-radius: 6px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+.modal-title {
+  font-size: 16px; font-weight: 400;
+  letter-spacing: 4px;
+  margin-bottom: 28px;
+  color: var(--warm);
+}
+.modal-field {
+  margin-bottom: 20px;
+}
+.modal-label {
+  font-size: 11px; font-weight: 400;
+  letter-spacing: 2px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  display: block;
+}
+.modal-input {
+  width: 100%;
+  padding: 11px 16px;
+  background: rgba(28, 35, 51, 0.8);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 13.5px;
+  font-weight: 300;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.3s ease;
+  letter-spacing: 1px;
+}
+.modal-input:focus { border-color: rgba(200, 180, 120, 0.4); }
+
+.modal-actions {
+  display: flex; justify-content: flex-end; gap: 12px;
+  margin-top: 8px;
+}
+.modal-btn {
+  padding: 9px 22px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 12.5px;
+  font-weight: 300;
+  letter-spacing: 2px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+.modal-btn:hover {
+  border-color: rgba(200, 180, 120, 0.3);
+  color: var(--text-primary);
+}
+.modal-btn.primary {
+  background: rgba(200, 180, 120, 0.1);
+  border-color: rgba(200, 180, 120, 0.25);
+  color: var(--warm);
+}
+.modal-btn.primary:hover {
+  background: rgba(200, 180, 120, 0.18);
+  border-color: rgba(200, 180, 120, 0.4);
+}
+
+/* ---- Keyframes ---- */
+@keyframes breathe {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ---- Scene Text (shared) ---- */
+.scene-text {
+  position: absolute;
+  font-weight: 200;
+  letter-spacing: 6px;
+  opacity: 0;
+  transition: opacity 2.5s ease;
+  text-shadow: 0 0 40px rgba(0,0,0,0.6);
+  white-space: nowrap;
+  font-family: 'Noto Serif SC', serif;
+}
+.scene-text.visible { opacity: 1; }
+.scene-text.fading { opacity: 0; transition: opacity 3s ease; }
+
+/* ---- Recipe Lab (配方工坊) ---- */
+#recipe-lab {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+#recipe-lab.active { display: flex; opacity: 1; }
+
+.rl-topstrip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(12, 15, 28, 0.3);
+}
+.rl-recipe-name {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--warm);
+  font-size: 18px;
+  font-family: 'Noto Serif SC', serif;
+  font-weight: 300;
+  padding: 6px 4px;
+  outline: none;
+  letter-spacing: 0.08em;
+}
+.rl-recipe-name:focus { border-bottom-color: var(--border-active); }
+.rl-recipe-name::placeholder { color: var(--text-dim); font-weight: 200; }
+
+.rl-bpm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+}
+.rl-bpm input {
+  width: 52px;
+  background: rgba(40, 48, 78, 0.6);
+  border: 1px solid var(--border);
+  color: var(--warm);
+  padding: 4px 6px;
+  border-radius: 3px;
+  font-family: inherit;
+  text-align: center;
+  font-size: 13px;
+  outline: none;
+}
+
+.rl-btn {
+  background: transparent;
+  border: 1px solid var(--border-active);
+  color: var(--warm);
+  padding: 6px 14px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 13px;
+  font-weight: 300;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 0.2s;
+}
+.rl-btn:hover { background: var(--glow-soft); color: var(--glow); }
+.rl-btn.primary {
+  background: var(--glow-soft);
+  color: var(--glow);
+}
+.rl-btn.primary:hover { background: rgba(200, 180, 120, 0.25); }
+
+.rl-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.rl-left {
+  width: 44%;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 16px 20px;
+  background: rgba(20, 24, 42, 0.25);
+}
+.rl-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.rl-section-title {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin: 4px 0 10px 2px;
+}
+
+.layer-card {
+  background: rgba(30, 38, 62, 0.5);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: 3px;
+  padding: 14px 16px 12px;
+  margin-bottom: 12px;
+  transition: border-left-color 0.2s;
+}
+.layer-card[data-layer="bass"] { border-left-color: #6a88c8; }
+.layer-card[data-layer="mid"]  { border-left-color: #89a6cc; }
+.layer-card[data-layer="lead"] { border-left-color: #dac5a0; }
+.layer-card[data-layer="fx"]   { border-left-color: #a69bc0; }
+
+.layer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.layer-name {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 14px;
+  color: var(--warm);
+  font-weight: 300;
+  letter-spacing: 0.1em;
+}
+.layer-subtle {
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 0.12em;
+  margin-left: 8px;
+}
+.layer-mute {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.08em;
+}
+.layer-mute.muted { color: var(--text-dim); border-color: var(--border); background: transparent; opacity: 0.5; }
+.layer-mute.on { color: var(--glow); border-color: var(--border-active); background: var(--glow-soft); }
+
+.layer-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.layer-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  width: 38px;
+  letter-spacing: 0.08em;
+}
+.layer-select {
+  flex: 1;
+  background: rgba(12, 15, 28, 0.6);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 5px 8px;
+  border-radius: 2px;
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+}
+.layer-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  height: 18px;
+  cursor: pointer;
+}
+.layer-slider::-webkit-slider-runnable-track {
+  height: 2px;
+  background: linear-gradient(to right, var(--glow-soft), var(--border));
+  border-radius: 1px;
+}
+.layer-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--warm);
+  margin-top: -5px;
+  box-shadow: 0 0 6px rgba(200, 180, 120, 0.4);
+}
+.layer-value {
+  font-size: 11px;
+  color: var(--warm);
+  width: 32px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.rl-code-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px 0;
+  min-height: 0;
+}
+.rl-code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.rl-code {
+  flex: 1;
+  background: rgba(10, 12, 22, 0.6);
+  border: 1px solid var(--border);
+  color: #d0d6e8;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 14px 16px;
+  border-radius: 3px;
+  resize: none;
+  outline: none;
+  overflow: auto;
+  white-space: pre;
+  tab-size: 2;
+  min-height: 0;
+}
+.rl-code:focus { border-color: var(--border-active); }
+
+/* Highlight overlay — mirrors the code textarea during playback */
+.rl-code-stack {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.rl-code-stack .rl-code { position: relative; z-index: 1; background: rgba(10, 12, 22, 0.6); }
+.rl-highlight-overlay {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 14px 16px;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre;
+  tab-size: 2;
+  color: transparent;  /* text stays hidden; only the backgrounds show */
+  pointer-events: none;
+  overflow: auto;
+  display: none;
+  z-index: 2;
+  border-radius: 3px;
+}
+.rl-highlight-overlay.active { display: block; }
+.rl-code-stack.playing .rl-code { color: rgba(208, 214, 232, 0.35); }  /* dim the textarea while overlay is up */
+.rl-highlight-overlay span[data-range] {
+  background: transparent;
+  border-radius: 2px;
+  transition: background 160ms ease-out, box-shadow 160ms ease-out;
+}
+.rl-highlight-overlay span[data-range].hot {
+  background: rgba(220, 180, 90, 0.32);
+  box-shadow: 0 0 8px rgba(220, 180, 90, 0.28);
+  color: #f4e4b8;
+}
+
+.rl-transport {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  background: rgba(12, 15, 28, 0.4);
+  border-top: 1px solid var(--border);
+}
+.rl-play-btn {
+  background: var(--glow-soft);
+  border: 1px solid var(--border-active);
+  color: var(--glow);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.rl-play-btn:hover { background: rgba(200, 180, 120, 0.25); }
+.rl-play-btn.playing { background: #c06060; border-color: #c06060; color: #fff; }
+
+.rl-status {
+  flex: 1;
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+}
+.rl-status.ok { color: #8ac296; }
+.rl-status.err { color: #d88a8a; }
+
+.rl-tagbar {
+  padding: 14px 20px 18px;
+  border-top: 1px solid var(--border);
+  background: rgba(20, 24, 42, 0.3);
+}
+.rl-tag-title {
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.rl-tag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rl-tag {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.04em;
+}
+.rl-tag:hover { border-color: var(--border-active); color: var(--warm); }
+.rl-tag.active {
+  background: var(--glow-soft);
+  border-color: var(--border-active);
+  color: var(--glow);
+}
+
+.rl-recipes {
+  margin-top: 18px;
+}
+.rl-recipe-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rl-recipe-item {
+  background: rgba(30, 38, 62, 0.4);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.2s;
+}
+.rl-recipe-item:hover {
+  border-color: var(--border-active);
+  color: var(--warm);
+}
+.rl-recipe-item.active {
+  background: var(--glow-soft);
+  border-color: var(--border-active);
+  color: var(--glow);
+}
+.rl-recipe-item .rm {
+  color: var(--text-dim);
+  font-size: 11px;
+  padding: 0 4px;
+}
+.rl-recipe-item .rm:hover { color: #d88a8a; }
+
+.rl-no-project {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--text-dim);
+  font-family: 'Noto Serif SC', serif;
+  font-size: 14px;
+  letter-spacing: 0.1em;
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">创意工坊</div>
+      <div class="sidebar-sub">墨 & 丽丽</div>
+    </div>
+    <div class="sidebar-projects" id="project-list"></div>
+    <div class="sidebar-footer">
+      <button class="btn-new-project" id="btn-new">+ 新项目</button>
+    </div>
+  </div>
+
+  <!-- Main Panel -->
+  <div id="main">
+    <div class="main-topbar" id="topbar">
+      <button class="tab-btn active" data-tab="workspace">工作区</button>
+      <button class="tab-btn" data-tab="recipe">配方工坊</button>
+      <button class="tab-btn" data-tab="dj">DJ台</button>
+      <button class="tab-btn" data-tab="immersive">沉浸预览</button>
+      <div class="topbar-spacer"></div>
+      <div class="topbar-project-name" id="topbar-name"></div>
+    </div>
+    <div class="main-content">
+      <!-- Welcome -->
+      <div id="welcome">
+        <div class="welcome-text">选一个项目开始</div>
+        <div class="welcome-sub">或创建新的</div>
+      </div>
+
+      <!-- Recipe Lab (配方工坊) -->
+      <div id="recipe-lab">
+        <div class="rl-topstrip">
+          <input class="rl-recipe-name" id="rl-name" placeholder="给这道配方起个名字…">
+          <div class="rl-bpm"><span>BPM</span><input type="number" id="rl-bpm" min="40" max="200" value="90"></div>
+          <button class="rl-btn" id="rl-new">新配方</button>
+          <button class="rl-btn" id="rl-new-free" title="新建一个手写代码配方">新自由代码</button>
+          <button class="rl-btn primary" id="rl-save">保存</button>
+        </div>
+        <div class="rl-body" id="rl-body">
+          <!-- Left: layer editor -->
+          <div class="rl-left" id="rl-left">
+            <div class="rl-section-title">四层结构</div>
+            <div id="rl-layers"></div>
+
+            <div class="rl-recipes">
+              <div class="rl-section-title">已存配方</div>
+              <div class="rl-recipe-list" id="rl-recipe-list"></div>
+            </div>
+          </div>
+
+          <!-- Right: code + transport + tags -->
+          <div class="rl-right">
+            <div class="rl-code-wrap">
+              <div class="rl-code-head">
+                <div class="rl-section-title" style="margin:0;">Strudel 代码（可直接编辑）</div>
+                <button class="rl-btn" id="rl-regen" title="重新根据配方生成代码">↻ 从配方重新生成</button>
+              </div>
+              <div class="rl-code-stack" id="rl-code-stack">
+                <textarea class="rl-code" id="rl-code" spellcheck="false"></textarea>
+                <pre class="rl-highlight-overlay" id="rl-highlight"></pre>
+              </div>
+            </div>
+            <div class="rl-transport">
+              <button class="rl-play-btn" id="rl-play">▶</button>
+              <div class="rl-status" id="rl-status">未加载</div>
+              <button class="rl-btn" id="rl-strudelcc">在 strudel.cc 打开</button>
+            </div>
+            <div class="rl-tagbar">
+              <div class="rl-tag-title">感受标签（点一下就记下）</div>
+              <div class="rl-tag-chips" id="rl-tags"></div>
+            </div>
+          </div>
+        </div>
+        <div class="rl-no-project" id="rl-no-project" style="display:none;">先从左侧选一个项目</div>
+      </div>
+
+      <!-- DJ Station -->
+      <div id="dj-station">
+        <div class="dj-topstrip">
+          <label class="dj-file-btn">
+            📁 选音频文件
+            <input type="file" id="dj-file" accept="audio/*" style="display:none;" />
+          </label>
+          <button class="dj-play" id="dj-play-btn">▶</button>
+          <button class="dj-loop" id="dj-loop-btn" title="循环播放">↻ LOOP</button>
+          <div class="dj-track-name" id="dj-track-name">未加载 · 拖入音频或选择文件</div>
+          <div class="dj-spacer"></div>
+          <button class="dj-reset" id="dj-reset-btn" title="所有旋钮归零">RESET</button>
+        </div>
+        <canvas id="dj-waveform"></canvas>
+        <div class="dj-knobs-grid" id="dj-knobs-grid"><!-- JS 动态生成 --></div>
+        <div class="dj-hint">拖入音频文件或点左上按钮 · 按住旋钮上下拖动调参 · Tempo同时改变音高 · RESET一键回中</div>
+      </div>
+
+      <!-- Workspace -->
+      <div id="workspace">
+        <div class="ws-preview">
+          <div class="ws-scene-label" id="ws-scene-label"></div>
+          <div class="ws-scene-selector" id="ws-scene-selector"></div>
+          <div id="ws-canvas-container"></div>
+          <div id="ws-text-layer"></div>
+          <div class="ws-no-scene" id="ws-no-scene">尚无场景</div>
+          <div class="ws-controls">
+            <button class="ctrl-btn" id="ctrl-play" title="播放">&#9654;</button>
+            <button class="ctrl-btn" id="ctrl-stop" title="停止">&#9632;</button>
+            <div class="ws-progress"><div class="ws-progress-fill" id="ws-progress"></div></div>
+          </div>
+        </div>
+        <div class="ws-divider"></div>
+        <div class="ws-notes">
+          <div class="notes-header">
+            <div class="notes-tabs">
+              <button class="notes-tab active" data-panel="notes">笔记</button>
+              <button class="notes-tab" data-panel="whiteboard">白板</button>
+            </div>
+            <div class="notes-meta" id="notes-meta"></div>
+          </div>
+          <div class="notes-panel" id="panel-notes">
+            <div class="notes-body">
+              <textarea class="notes-textarea" id="notes-area" placeholder="写点什么..."></textarea>
+            </div>
+          </div>
+          <div class="notes-panel hidden" id="panel-whiteboard" style="position:relative;">
+            <div id="wb-zoom-guard" style="position:absolute;inset:0;z-index:2;cursor:pointer;" title="点击进入白板"></div>
+            <iframe id="whiteboard-frame" src="../工作台.html" style="width:100%;height:100%;border:none;"></iframe>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Immersive Playback (fullscreen overlay) -->
+<div id="immersive">
+  <div id="imm-canvas"></div>
+  <div id="imm-text"></div>
+  <div id="imm-ui">
+    <div class="imm-scene-name" id="imm-scene-name"></div>
+    <div class="imm-progress"><div class="imm-progress-fill" id="imm-progress"></div></div>
+  </div>
+  <div id="imm-start"><span>轻触开始</span></div>
+  <div class="imm-back" id="imm-back">返回工作区</div>
+</div>
+
+<!-- New Project Modal -->
+<div id="modal-overlay">
+  <div class="modal">
+    <div class="modal-title">新项目</div>
+    <div class="modal-field">
+      <label class="modal-label">名称</label>
+      <input class="modal-input" id="modal-name" placeholder="给它一个名字" autofocus>
+    </div>
+    <div class="modal-field">
+      <label class="modal-label">简介</label>
+      <input class="modal-input" id="modal-desc" placeholder="一句话描述">
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn" id="modal-cancel">取消</button>
+      <button class="modal-btn primary" id="modal-create">创建</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  创意工坊 v2 — Project Workspace
+// ============================================================
+
+// ---- Data Layer ----
+const STORAGE_KEY = 'creative-workshop-data';
+
+const defaultData = {
+  projects: [
+    {
+      id: 'proj-light',
+      name: '光与呼吸',
+      description: '第一批实验场景',
+      status: 'done',
+      createdAt: '2026-04-09T13:00:00Z',
+      updatedAt: '2026-04-09T15:00:00Z',
+      notes: '第一批实验场景。\n呼吸是空舞台测试，铁轨是昨晚宫崎骏故事的视觉化。\n猫背上的青色花、女孩踩着枕木走来。\n两个人都拼命护对方的角色、碎自己的。',
+      scenes: ['breathe', 'rail-flowers']
+    },
+    {
+      id: 'proj-drawer',
+      name: '抽屉记忆',
+      description: '多agent记忆系统可视化',
+      status: 'draft',
+      createdAt: '2026-04-09T16:00:00Z',
+      updatedAt: '2026-04-09T16:00:00Z',
+      notes: '多agent记忆系统可视化教程。\n\n四幕：\n1. 小克出场 — 各有形象（围裙care、记事本wins、花圈chat、领带mac）\n2. 工作日 — 翻抽屉拿资料、回工位、贴板报\n3. 入夜 — 梦境c（魔法帽）整理抽屉，过期的放灰色箱子\n4. 拉远 — 画面旋转，抽屉变成海马体/突触\n\nchat翻到粉色的那格会脸红然后扣上\n\n设计稿在Notion。',
+      scenes: []
+    }
+  ],
+  activeProjectId: null
+};
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch(e) {}
+  return JSON.parse(JSON.stringify(defaultData));
+}
+
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+}
+
+let appData = loadData();
+
+// ---- Scene Registry ----
+const sceneRegistry = {};
+
+function registerScene(key, scene) {
+  scene._key = key;
+  sceneRegistry[key] = scene;
+}
+
+// ---- UI References ----
+const projectList = document.getElementById('project-list');
+const welcome = document.getElementById('welcome');
+const workspace = document.getElementById('workspace');
+const topbarName = document.getElementById('topbar-name');
+const notesArea = document.getElementById('notes-area');
+const notesMeta = document.getElementById('notes-meta');
+const wsCanvasContainer = document.getElementById('ws-canvas-container');
+const wsTextLayer = document.getElementById('ws-text-layer');
+const wsSceneLabel = document.getElementById('ws-scene-label');
+const wsSceneSelector = document.getElementById('ws-scene-selector');
+const wsNoScene = document.getElementById('ws-no-scene');
+const wsProgress = document.getElementById('ws-progress');
+
+const immersive = document.getElementById('immersive');
+const immCanvas = document.getElementById('imm-canvas');
+const immText = document.getElementById('imm-text');
+const immSceneName = document.getElementById('imm-scene-name');
+const immProgress = document.getElementById('imm-progress');
+const immStart = document.getElementById('imm-start');
+
+const modalOverlay = document.getElementById('modal-overlay');
+
+// ---- State ----
+let activeProject = null;
+let activeSceneKey = null;
+let p5Inst = null;
+let toneReady = false;
+let playing = false;
+let playStart = 0;
+let rafId = null;
+let textTimers = [];
+let currentMode = 'workspace'; // 'workspace' | 'immersive'
+let immersivePlaying = false;
+
+// ---- Render Sidebar ----
+function renderProjects() {
+  projectList.innerHTML = '';
+  appData.projects.forEach(proj => {
+    const el = document.createElement('div');
+    el.className = 'project-item' + (activeProject && activeProject.id === proj.id ? ' active' : '');
+    el.innerHTML = `
+      <div class="project-name">
+        <span class="status-dot ${proj.status}"></span>
+        ${proj.name}
+      </div>
+      <div class="project-desc">${proj.description}</div>
+    `;
+    el.addEventListener('click', () => selectProject(proj.id));
+    projectList.appendChild(el);
+  });
+}
+
+// ---- Select Project ----
+function selectProject(id) {
+  stopPlayback();
+  activeProject = appData.projects.find(p => p.id === id);
+  if (!activeProject) return;
+
+  appData.activeProjectId = id;
+  saveData();
+
+  // Update UI
+  renderProjects();
+  welcome.classList.add('hidden');
+  workspace.classList.add('active');
+  topbarName.textContent = activeProject.name;
+
+  // Notes
+  notesArea.value = activeProject.notes || '';
+  const d = new Date(activeProject.updatedAt);
+  notesMeta.textContent = d.toLocaleDateString('zh-CN') + ' 更新';
+
+  // Scenes
+  renderSceneSelector();
+
+  // Auto-select first scene
+  if (activeProject.scenes.length > 0) {
+    selectScene(activeProject.scenes[0]);
+  } else {
+    activeSceneKey = null;
+    wsNoScene.style.display = 'flex';
+    wsSceneLabel.textContent = '';
+  }
+}
+
+// ---- Scene Selector ----
+function renderSceneSelector() {
+  wsSceneSelector.innerHTML = '';
+  if (!activeProject || activeProject.scenes.length === 0) return;
+
+  activeProject.scenes.forEach(key => {
+    const scene = sceneRegistry[key];
+    if (!scene) return;
+    const pill = document.createElement('div');
+    pill.className = 'scene-pill' + (activeSceneKey === key ? ' active' : '');
+    pill.textContent = scene.name;
+    pill.addEventListener('click', () => selectScene(key));
+    wsSceneSelector.appendChild(pill);
+  });
+}
+
+// ---- Select Scene ----
+function selectScene(key) {
+  stopPlayback();
+  activeSceneKey = key;
+  const scene = sceneRegistry[key];
+  if (!scene) return;
+
+  wsNoScene.style.display = 'none';
+  wsSceneLabel.textContent = scene.name;
+  renderSceneSelector();
+}
+
+// ---- Playback (Workspace) ----
+async function startPlayback() {
+  if (!activeSceneKey || playing) return;
+  const scene = sceneRegistry[activeSceneKey];
+  if (!scene) return;
+
+  if (!toneReady) {
+    await Tone.start();
+    toneReady = true;
+  }
+
+  playing = true;
+  playStart = Date.now();
+
+  // p5
+  const container = currentMode === 'immersive' ? immCanvas : wsCanvasContainer;
+  const textLayer = currentMode === 'immersive' ? immText : wsTextLayer;
+
+  p5Inst = new p5((p) => {
+    p.setup = () => {
+      const rect = container.getBoundingClientRect();
+      const canvas = p.createCanvas(rect.width, rect.height);
+      canvas.parent(container);
+      if (scene.animation && scene.animation.setup) scene.animation.setup(p);
+    };
+    p.draw = () => {
+      if (!playing) return;
+      const elapsed = (Date.now() - playStart) / 1000;
+      if (scene.animation && scene.animation.draw) scene.animation.draw(p, elapsed);
+    };
+    p.windowResized = () => {
+      const rect = container.getBoundingClientRect();
+      p.resizeCanvas(rect.width, rect.height);
+    };
+  });
+
+  // Music
+  if (scene.music && scene.music.start) scene.music.start();
+
+  // Texts
+  if (scene.texts) scheduleTexts(scene.texts, textLayer);
+
+  // Progress
+  updatePlayProgress();
+
+  // Auto-stop
+  if (scene.duration) {
+    setTimeout(() => stopPlayback(), scene.duration * 1000);
+  }
+}
+
+function stopPlayback() {
+  if (p5Inst) { p5Inst.remove(); p5Inst = null; }
+
+  if (activeSceneKey) {
+    const scene = sceneRegistry[activeSceneKey];
+    if (scene && scene.music && scene.music.stop) scene.music.stop();
+  }
+  try { Tone.Transport.stop(); Tone.Transport.cancel(); } catch(e) {}
+
+  textTimers.forEach(t => clearTimeout(t));
+  textTimers = [];
+  wsTextLayer.innerHTML = '';
+  immText.innerHTML = '';
+
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  wsProgress.style.width = '0%';
+  immProgress.style.width = '0%';
+
+  playing = false;
+}
+
+function scheduleTexts(texts, layer) {
+  layer.innerHTML = '';
+  texts.forEach(t => {
+    const el = document.createElement('div');
+    el.className = 'scene-text';
+    el.textContent = t.content;
+    el.style.fontSize = (t.size || 22) + 'px';
+    el.style.color = t.color || 'rgba(200, 205, 218, 0.85)';
+    if (t.x !== undefined && t.y !== undefined) {
+      el.style.left = t.x; el.style.top = t.y; el.style.transform = 'none';
+    } else {
+      el.style.left = '50%'; el.style.top = '50%'; el.style.transform = 'translate(-50%, -50%)';
+    }
+    layer.appendChild(el);
+    textTimers.push(setTimeout(() => el.classList.add('visible'), t.time * 1000));
+    if (t.fadeOut !== undefined) {
+      textTimers.push(setTimeout(() => { el.classList.remove('visible'); el.classList.add('fading'); }, t.fadeOut * 1000));
+    }
+  });
+}
+
+function updatePlayProgress() {
+  if (!playing || !activeSceneKey) return;
+  const scene = sceneRegistry[activeSceneKey];
+  if (!scene || !scene.duration) return;
+  const elapsed = (Date.now() - playStart) / 1000;
+  const pct = Math.min(100, (elapsed / scene.duration) * 100) + '%';
+  wsProgress.style.width = pct;
+  immProgress.style.width = pct;
+  if (elapsed < scene.duration) rafId = requestAnimationFrame(updatePlayProgress);
+}
+
+// ---- Immersive Mode ----
+function enterImmersive() {
+  if (!activeSceneKey) return;
+  currentMode = 'immersive';
+  stopPlayback();
+  immersive.classList.add('active');
+  immStart.classList.remove('hidden');
+  immSceneName.textContent = sceneRegistry[activeSceneKey]?.name || '';
+}
+
+function exitImmersive() {
+  stopPlayback();
+  immersive.classList.remove('active');
+  currentMode = 'workspace';
+}
+
+immStart.addEventListener('click', async () => {
+  immStart.classList.add('hidden');
+  await startPlayback();
+});
+
+document.getElementById('imm-back').addEventListener('click', () => {
+  exitImmersive();
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.tab-btn[data-tab="workspace"]').classList.add('active');
+});
+
+// ---- Tab Switching ----
+const recipeLab = document.getElementById('recipe-lab');
+const djStation = document.getElementById('dj-station');
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = btn.dataset.tab;
+
+    // Reset all views
+    exitImmersive();
+    recipeLab.classList.remove('active');
+    workspace.classList.remove('active');
+    djStation.classList.remove('active');
+
+    if (tab === 'immersive') {
+      enterImmersive();
+    } else if (tab === 'recipe') {
+      recipeLab.classList.add('active');
+      if (activeProject) {
+        RecipeLab.enter();
+      }
+    } else if (tab === 'dj') {
+      djStation.classList.add('active');
+      if (window.DjStation) window.DjStation.enter();
+    } else {
+      workspace.classList.add('active');
+    }
+  });
+});
+
+// ---- Controls ----
+document.getElementById('ctrl-play').addEventListener('click', () => {
+  if (!playing) startPlayback();
+});
+document.getElementById('ctrl-stop').addEventListener('click', () => {
+  stopPlayback();
+});
+
+// ---- Notes Auto-save ----
+let notesSaveTimer;
+notesArea.addEventListener('input', () => {
+  clearTimeout(notesSaveTimer);
+  notesSaveTimer = setTimeout(() => {
+    if (!activeProject) return;
+    activeProject.notes = notesArea.value;
+    activeProject.updatedAt = new Date().toISOString();
+    saveData();
+    const d = new Date(activeProject.updatedAt);
+    notesMeta.textContent = d.toLocaleDateString('zh-CN') + ' 更新';
+  }, 800);
+});
+
+// ---- New Project Modal ----
+document.getElementById('btn-new').addEventListener('click', () => {
+  modalOverlay.classList.add('active');
+  document.getElementById('modal-name').value = '';
+  document.getElementById('modal-desc').value = '';
+  setTimeout(() => document.getElementById('modal-name').focus(), 100);
+});
+
+document.getElementById('modal-cancel').addEventListener('click', () => {
+  modalOverlay.classList.remove('active');
+});
+
+document.getElementById('modal-create').addEventListener('click', () => {
+  const name = document.getElementById('modal-name').value.trim();
+  if (!name) return;
+  const desc = document.getElementById('modal-desc').value.trim();
+  const now = new Date().toISOString();
+  const proj = {
+    id: 'proj-' + Date.now(),
+    name,
+    description: desc,
+    status: 'draft',
+    createdAt: now,
+    updatedAt: now,
+    notes: '',
+    scenes: []
+  };
+  appData.projects.push(proj);
+  saveData();
+  renderProjects();
+  selectProject(proj.id);
+  modalOverlay.classList.remove('active');
+});
+
+modalOverlay.addEventListener('click', (e) => {
+  if (e.target === modalOverlay) modalOverlay.classList.remove('active');
+});
+
+// ---- Prevent page-level zoom ----
+document.addEventListener('wheel', (e) => {
+  if (e.ctrlKey) e.preventDefault();
+}, { passive: false });
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && (e.key === '=' || e.key === '-' || e.key === '+' || e.key === '0')) {
+    e.preventDefault();
+  }
+});
+
+// ---- Whiteboard zoom guard ----
+// Click guard to enter whiteboard, click outside to exit
+const wbGuard = document.getElementById('wb-zoom-guard');
+const wbFrame = document.getElementById('whiteboard-frame');
+
+wbGuard.addEventListener('click', () => {
+  wbGuard.style.pointerEvents = 'none';
+  wbFrame.focus();
+});
+// Re-enable guard when clicking outside the whiteboard
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#panel-whiteboard')) {
+    wbGuard.style.pointerEvents = 'auto';
+  }
+});
+// Also re-enable when switching tabs
+document.querySelectorAll('.notes-tab').forEach(t => {
+  t.addEventListener('click', () => { wbGuard.style.pointerEvents = 'auto'; });
+});
+
+// ---- Notes Tab Switching ----
+document.querySelectorAll('.notes-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.notes-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const panel = tab.dataset.panel;
+    document.querySelectorAll('.notes-panel').forEach(p => p.classList.add('hidden'));
+    document.getElementById('panel-' + panel).classList.remove('hidden');
+  });
+});
+
+// ---- Divider Drag ----
+const wsDivider = document.querySelector('.ws-divider');
+const wsPreview = document.querySelector('.ws-preview');
+const wsNotes = document.querySelector('.ws-notes');
+let dragging = false;
+
+wsDivider.addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  dragging = true;
+  document.body.style.cursor = 'ns-resize';
+  document.body.style.userSelect = 'none';
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!dragging) return;
+  const container = document.querySelector('#workspace');
+  const rect = container.getBoundingClientRect();
+  const y = e.clientY - rect.top;
+  const total = rect.height;
+  const pct = Math.max(20, Math.min(85, (y / total) * 100));
+  wsPreview.style.flex = 'none';
+  wsPreview.style.height = pct + '%';
+  wsNotes.style.flex = 'none';
+  wsNotes.style.height = (100 - pct) + '%';
+});
+
+document.addEventListener('mouseup', () => {
+  if (dragging) {
+    dragging = false;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }
+});
+
+// ---- Keyboard ----
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (modalOverlay.classList.contains('active')) {
+      modalOverlay.classList.remove('active');
+    } else if (immersive.classList.contains('active')) {
+      exitImmersive();
+      // Reset tab buttons
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector('.tab-btn[data-tab="workspace"]').classList.add('active');
+    }
+  }
+});
+
+// ============================================================
+//  RECIPE LAB (配方工坊)
+// ============================================================
+const RecipeLab = (function() {
+
+  // ---- Presets per layer ----
+  // Each preset takes (gain, density, bpm) and returns a Strudel expression string (no trailing $: )
+  const PRESETS = {
+    bass: {
+      'drone-deep':  (g, d) => `n("0 ~ ~ 0 ~ ~ 0 ~").scale("C2:minor").s("sawtooth").lpf(220).lpq(4).gain(${g.toFixed(2)}).room(0.4).slow(2)`,
+      'sine-sub':    (g, d) => `note("c1 ~ c1 ~ ~ c1 ~ ~").s("sine").gain(${g.toFixed(2)}).lpf(180)`,
+      'warm-cello':  (g, d) => `note("<c2 g1 f1 bb1>").s("sawtooth").lpf(400).lpq(2).attack(2).release(4).gain(${g.toFixed(2)}).room(0.5)`,
+      'pulse-low':   (g, d) => `note("<c2 c2 eb2 c2>").s("square").lpf(300).gain(${g.toFixed(2)}).delay(0.25).delaytime(0.375).delayfeedback(0.4)`,
+      'rumble-noise':(g, d) => `s("brown*4").lpf(80).gain(${g.toFixed(2)}).room(0.6)`
+    },
+    mid: {
+      'pad-airy':     (g, d) => `note("<[c3,eb3,g3] [bb2,d3,f3] [ab2,c3,eb3] [f2,ab2,c3]>").s("sawtooth").attack(3).release(6).lpf(1200).gain(${g.toFixed(2)}).room(0.8).slow(2)`,
+      'choir-distant':(g, d) => `note("<[c3,g3] [eb3,bb3] [g3,d4] [f3,c4]>").s("triangle").vowel("<a e i o>").attack(4).release(5).gain(${g.toFixed(2)}).room(0.9).slow(2)`,
+      'warm-fog':     (g, d) => `note("<[c3,f3,a3] [bb2,eb3,g3]>").s("sine").attack(2).release(4).lpf(800).gain(${g.toFixed(2)}).room(0.7)`,
+      'shimmer-wash': (g, d) => `note("<c4 eb4 g4 bb4>").s("sine").attack(1.5).release(3).gain(${g.toFixed(2)}).room(0.95).delay(0.5).delaytime(0.75).delayfeedback(0.6)`,
+      'muted-keys':   (g, d) => `note("<[c3,eb3] [f3,ab3] [g3,bb3] [eb3,g3]>").s("sine").lpf(900).attack(0.005).release(1.5).gain(${g.toFixed(2)}).room(0.6)`
+    },
+    lead: {
+      'pluck-crystal': (g, d) => `n("<0 2 4 7 4 2>*${Math.max(1, Math.round(d*3))}").scale("C4:minor").s("triangle").attack(0.01).release(0.8).gain(${g.toFixed(2)}).room(0.7).delay(0.4).delaytime(0.375)`,
+      'celesta-tiny':  (g, d) => `n("<0 3 5 7 5 3 2 0>*${Math.max(1, Math.round(d*2))}").scale("C5:minor").s("sine").attack(0.005).release(0.3).gain(${g.toFixed(2)}).room(0.85)`,
+      'music-box':     (g, d) => `n("<~ 2 ~ 4 ~ 5 ~ 4>").scale("C5:major").s("triangle").attack(0.002).decay(0.4).sustain(0).gain(${g.toFixed(2)}).room(0.75).delay(0.3)`,
+      'glass-drops':   (g, d) => `n("<0 2 4 5 7 5 4 2>*${Math.max(1, Math.round(d*2))}").scale("C5:hirajoshi").s("sine").attack(0.001).release(0.6).gain(${g.toFixed(2)}).room(0.9)`,
+      'bell-far':      (g, d) => `note("<a5 ~ ~ d5 ~ ~ f5 ~>").s("sine").attack(0.002).decay(2).sustain(0).gain(${g.toFixed(2)}).room(0.95).delay(0.5)`
+    },
+    fx: {
+      'whispers':    (g, d) => `s("white*${Math.max(2, Math.round(d*8))}").gain(${(g*0.6).toFixed(2)}).lpf(1800).pan(sine.slow(6)).room(0.8)`,
+      'crackles':    (g, d) => `s("white*${Math.max(4, Math.round(d*12))}").hpf(3000).gain(${(g*0.5).toFixed(2)}).shape(0.6)`,
+      'windy':       (g, d) => `s("pink").gain(${g.toFixed(2)}).lpf(1000).room(0.7)`,
+      'ice-shards':  (g, d) => `n("<0 3 5 7 5 3>*${Math.max(1, Math.round(d*2))}").scale("C6:minor").s("triangle").attack(0.001).release(0.2).gain(${(g*0.6).toFixed(2)}).room(0.9)`,
+      'tape-hiss':   (g, d) => `s("white").gain(${(g*0.4).toFixed(2)}).hpf(2000).lpf(6000)`
+    }
+  };
+
+  // Human labels for the UI
+  const PRESET_LABELS = {
+    bass: {
+      'drone-deep': '深潜底鸣', 'sine-sub': '正弦次声', 'warm-cello': '暖大提琴',
+      'pulse-low': '低脉冲', 'rumble-noise': '闷雷噪'
+    },
+    mid: {
+      'pad-airy': '空气pad', 'choir-distant': '远处人声',
+      'warm-fog': '暖雾', 'shimmer-wash': '微光漫涌', 'muted-keys': '闷键'
+    },
+    lead: {
+      'pluck-crystal': '水晶拨弦', 'celesta-tiny': '小钢片琴',
+      'music-box': '音乐盒', 'glass-drops': '玻璃水滴', 'bell-far': '远钟'
+    },
+    fx: {
+      'whispers': '窸窣', 'crackles': '裂纹',
+      'windy': '风', 'ice-shards': '冰刺', 'tape-hiss': '磁带底噪'
+    }
+  };
+
+  const LAYER_META = [
+    { key: 'bass', name: '底层', sub: 'bass / drone' },
+    { key: 'mid',  name: '中层', sub: 'pad / texture' },
+    { key: 'lead', name: '上层', sub: 'lead / pluck' },
+    { key: 'fx',   name: '装饰', sub: 'fx / cracks'  }
+  ];
+
+  const FEEL_TAGS = [
+    '太亮', '太密', '太稀', '缺呼吸', '太悲', '太急',
+    '再慢一拍', '这里要裂开', '底太闷', '上层刺耳',
+    '正好', '有点意思', '再飘一点', '再沉一点'
+  ];
+
+  // Default recipe (preset mode = generated from layers; freecode mode = hand-crafted code)
+  function defaultRecipe(name = '新配方', mode = 'preset') {
+    return {
+      id: 'recipe-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+      name,
+      mode,  // 'preset' | 'freecode'
+      bpm: 90,
+      tags: [],
+      layers: {
+        bass: { preset: 'drone-deep',    gain: 0.55, density: 0.3, muted: false },
+        mid:  { preset: 'pad-airy',      gain: 0.45, density: 0.4, muted: false },
+        lead: { preset: 'pluck-crystal', gain: 0.40, density: 0.5, muted: false },
+        fx:   { preset: 'whispers',      gain: 0.35, density: 0.4, muted: false }
+      },
+      code: '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  function snowfallRecipe() {
+    const r = defaultRecipe('Snowfall 专属版', 'preset');
+    r.bpm = 80;
+    r.layers = {
+      bass: { preset: 'sine-sub',      gain: 0.50, density: 0.25, muted: false },
+      mid:  { preset: 'shimmer-wash',  gain: 0.40, density: 0.35, muted: false },
+      lead: { preset: 'glass-drops',   gain: 0.35, density: 0.55, muted: false },
+      fx:   { preset: 'whispers',      gain: 0.30, density: 0.5,  muted: false }
+    };
+    r.tags = [];
+    return r;
+  }
+
+  // Freecode preset: 《雨天窗台》 — lofi drums + rhodes + rain + bouncing bass + fm guitar
+  // Rewritten from Lili's original: setcps→.cpm, .slow(2) moved outside note strings,
+  // kick/hh/snare drum samples replaced with synth drums (sine kick + white-noise hh/sd)
+  // so it works with @strudel/web internal synths only (no sample loading).
+  function rainyWindowRecipe() {
+    const r = defaultRecipe('雨天窗台', 'freecode');
+    r.bpm = 78;
+    r.tags = ['正好'];
+    r.code = `// 雨天窗台 — lofi · 合成鼓 · rhodes · 雨声 · 弹跳bass · 远处FM吉他
+// 这是"自由代码"配方：左边的层滑块不会影响它，直接改代码就行
+
+stack(
+  // lo-fi鼓组 — 合成版（kick sine; snare/hh white noise门控）
+  note("c1 ~ ~ ~ c1 ~ ~ ~").s("sine")
+    .attack(0.001).decay(0.18).sustain(0).gain(0.55),
+  s("white*8").mask("0 0 1 0 0 0 1 0")
+    .hpf(1500).attack(0.001).decay(0.12).sustain(0).gain(0.35),
+  s("white*8")
+    .hpf(6500).attack(0.001).decay(0.04).sustain(0).gain(0.22),
+
+  // 温暖的rhodes钢琴 — 被磁带揉过
+  note("<[c3,e3,g3,b3] [a2,c3,e3,g3] [f2,a2,c3,f3] [g2,b2,d3,g3]>").slow(2)
+    .s("sawtooth")
+    .lpf(sine.range(800, 1800).slow(12)).lpq(1)
+    .attack(0.02).decay(0.4).sustain(0.3).release(0.8)
+    .room(0.4).roomsize(3)
+    .pan(sine.range(0.35, 0.65).slow(4))
+    .gain(0.2),
+
+  // 像窗外下雨的噪音底层
+  s("white*16").hpf(7000)
+    .gain(perlin.range(0.02, 0.06))
+    .room(0.6).pan(perlin.range(0.1, 0.9)),
+
+  // 偶尔冒出的弹跳bass
+  note("c2 ~ ~ [g1 ~] ~ e2 ~ ~").slow(2)
+    .s("triangle").lpf(500)
+    .attack(0.005).decay(0.2).sustain(0.1).release(0.15)
+    .gain(0.32),
+
+  // 远处一把吉他 — FM合成假装的
+  note("~ ~ ~ ~ g4 ~ ~ ~, ~ ~ ~ ~ ~ ~ e4 ~").slow(2)
+    .s("sine")
+    .fm(1.8).fmh(2).fmdecay(0.4)
+    .attack(0.01).decay(0.5).sustain(0).release(1)
+    .room(0.7).roomsize(5)
+    .delay(0.3).delaytime(0.375).delayfeedback(0.4)
+    .gain(0.15)
+).cpm(78)`;
+    return r;
+  }
+
+  // ---- Code generation ----
+  function generateCode(recipe) {
+    const lines = [];
+    lines.push(`// ${recipe.name}`);
+    lines.push(`// ${LAYER_META.map(l => l.name + ':' + (recipe.layers[l.key].muted ? '—' : recipe.layers[l.key].preset)).join('  ')}`);
+    lines.push(`// bpm ${recipe.bpm}`);
+    lines.push('');
+    lines.push('stack(');
+
+    const activeLayers = LAYER_META.filter(l => !recipe.layers[l.key].muted);
+    activeLayers.forEach((l, idx) => {
+      const layer = recipe.layers[l.key];
+      const preset = PRESETS[l.key][layer.preset];
+      if (!preset) return;
+      const expr = preset(layer.gain, layer.density, recipe.bpm);
+      lines.push(`  // ${l.name}：${PRESET_LABELS[l.key][layer.preset] || layer.preset}`);
+      lines.push('  ' + expr + (idx < activeLayers.length - 1 ? ',' : ''));
+    });
+
+    lines.push(`).cpm(${recipe.bpm})`);
+    if (recipe.tags.length > 0) {
+      lines.push('');
+      lines.push(`// 感受标签：${recipe.tags.join('、')}`);
+    }
+    return lines.join('\n');
+  }
+
+  // ---- Strudel runtime ----
+  let strudelReady = false;
+  let strudelInitPromise = null;
+  // Cached module reference for transpiler + pattern queries (used by highlight engine)
+  let strudelMod = null;
+
+  async function ensureStrudel() {
+    if (strudelReady) return true;
+    if (strudelInitPromise) return strudelInitPromise;
+    strudelInitPromise = (async () => {
+      try {
+        // Load module fresh so we can access transpiler/isPattern/getAudioContext
+        strudelMod = await import('https://unpkg.com/@strudel/web@1.0.2/dist/index.mjs');
+        await strudelMod.initStrudel({ prebake: async () => {} });
+        // Mirror core fns to window so the rest of our code keeps working
+        window.initStrudel = strudelMod.initStrudel;
+        window.evaluate = strudelMod.evaluate;
+        window.hush = strudelMod.hush;
+        strudelReady = true;
+        return true;
+      } catch(e) {
+        console.warn('Strudel init failed:', e);
+      }
+      return false;
+    })();
+    return strudelInitPromise;
+  }
+
+  let playing = false;
+
+  // ---- Highlight engine ----
+  const $hl = document.getElementById('rl-highlight');
+  const $codeStack = document.getElementById('rl-code-stack');
+  let hlHapRanges = [];      // pre-queried haps: { begin, end, locRanges: 'start-end'[] }
+  let hlCycleWindow = 4;     // number of cycles pre-queried
+  let hlCps = 0.5;           // cycles per second (updated per evaluate)
+  let hlStartTime = 0;       // audio context time when playback started
+  let hlRafId = null;
+  let hlSpans = null;        // NodeList of [data-range] spans, by range key
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // Build the overlay <pre> content: wrap each miniLocation range in a span with data-range.
+  // Sorted + non-overlapping; overlapping/nested ranges are dropped (Strudel ranges are usually leaf tokens).
+  function buildHighlightOverlay(code, miniLocations) {
+    const locs = [...miniLocations]
+      .map(loc => Array.isArray(loc) ? { s: loc[0], e: loc[1] } : { s: loc.start, e: loc.end })
+      .filter(l => Number.isFinite(l.s) && Number.isFinite(l.e) && l.e > l.s)
+      .sort((a, b) => a.s - b.s);
+    let html = '';
+    let cursor = 0;
+    const seen = new Set();
+    for (const loc of locs) {
+      if (loc.s < cursor) continue; // skip nested/overlapping
+      const key = loc.s + '-' + loc.e;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (cursor < loc.s) html += escapeHtml(code.slice(cursor, loc.s));
+      html += `<span data-range="${key}">${escapeHtml(code.slice(loc.s, loc.e))}</span>`;
+      cursor = loc.e;
+    }
+    if (cursor < code.length) html += escapeHtml(code.slice(cursor));
+    $hl.innerHTML = html;
+    hlSpans = {};
+    $hl.querySelectorAll('[data-range]').forEach(el => { hlSpans[el.dataset.range] = el; });
+  }
+
+  function extractCpm(code, fallback) {
+    // Look for .cpm(NNN) or .cps(X) at the end of the pattern
+    const cpmMatch = code.match(/\.cpm\s*\(\s*([\d.]+)\s*\)/);
+    if (cpmMatch) return parseFloat(cpmMatch[1]);
+    const cpsMatch = code.match(/\.cps\s*\(\s*([\d.]+)\s*\)/);
+    if (cpsMatch) return parseFloat(cpsMatch[1]) * 60;
+    return fallback || 120;
+  }
+
+  function startHighlightTick() {
+    if (hlRafId) cancelAnimationFrame(hlRafId);
+    const lastActive = new Set();
+    // Use performance.now() as the time source (seconds). This decouples the
+    // highlight clock from the audio context — the overlay still animates even
+    // when the audio context is suspended (browser autoplay gating etc.).
+    const perfStart = performance.now() / 1000;
+    const tick = () => {
+      if (!playing) { hlRafId = null; return; }
+      const now = performance.now() / 1000;
+      const elapsed = now - perfStart;
+      const pos = ((elapsed * hlCps) % hlCycleWindow + hlCycleWindow) % hlCycleWindow;
+      const active = new Set();
+      for (const h of hlHapRanges) {
+        if (h.begin <= pos && pos < h.end) {
+          for (const k of h.locRanges) active.add(k);
+        }
+      }
+      for (const k of lastActive) {
+        if (!active.has(k)) {
+          const el = hlSpans && hlSpans[k];
+          if (el) el.classList.remove('hot');
+        }
+      }
+      for (const k of active) {
+        if (!lastActive.has(k)) {
+          const el = hlSpans && hlSpans[k];
+          if (el) el.classList.add('hot');
+        }
+      }
+      lastActive.clear();
+      active.forEach(k => lastActive.add(k));
+      hlRafId = requestAnimationFrame(tick);
+    };
+    hlRafId = requestAnimationFrame(tick);
+  }
+
+  function stopHighlight() {
+    if (hlRafId) { cancelAnimationFrame(hlRafId); hlRafId = null; }
+    if (hlSpans) {
+      for (const k in hlSpans) hlSpans[k].classList.remove('hot');
+    }
+    $hl.classList.remove('active');
+    $codeStack.classList.remove('playing');
+    hlHapRanges = [];
+    hlSpans = null;
+  }
+
+  function syncOverlayScroll() {
+    // Keep overlay scroll position synced with the textarea
+    const codeEl = document.getElementById('rl-code');
+    if (codeEl) {
+      $hl.scrollTop = codeEl.scrollTop;
+      $hl.scrollLeft = codeEl.scrollLeft;
+    }
+  }
+  // Scroll listener is registered lazily in startHighlightForCode to avoid
+  // referencing $code before its later `const` declaration (TDZ).
+
+  let scrollListenerBound = false;
+  function ensureScrollListener() {
+    if (scrollListenerBound) return;
+    const codeEl = document.getElementById('rl-code');
+    if (codeEl) {
+      codeEl.addEventListener('scroll', syncOverlayScroll);
+      scrollListenerBound = true;
+    }
+  }
+
+  async function startHighlightForCode(code) {
+    try {
+      if (!strudelMod || typeof strudelMod.transpiler !== 'function') return;
+      const { output, miniLocations } = strudelMod.transpiler(code);
+      if (!Array.isArray(miniLocations) || miniLocations.length === 0) return;
+      // Build overlay
+      buildHighlightOverlay(code, miniLocations);
+      ensureScrollListener();
+      syncOverlayScroll();
+      // Evaluate transpiled code into a pattern (separate instance, for query only)
+      let pattern;
+      try {
+        pattern = new Function(output)();
+      } catch(e) {
+        console.warn('Highlight transpile-eval failed', e);
+        return;
+      }
+      if (!pattern || typeof pattern.queryArc !== 'function') return;
+      // Query events for hlCycleWindow cycles
+      let rawHaps;
+      try {
+        rawHaps = pattern.queryArc(0, hlCycleWindow);
+      } catch(e) {
+        console.warn('queryArc failed', e);
+        return;
+      }
+      // Convert to plain data
+      hlHapRanges = rawHaps
+        .map(h => {
+          const whole = h.whole || h.part;
+          if (!whole) return null;
+          const b = Number(whole.begin), e = Number(whole.end);
+          if (!Number.isFinite(b) || !Number.isFinite(e)) return null;
+          const locRanges = (h.context?.locations || [])
+            .map(l => {
+              const s = l.start ?? l[0];
+              const e = l.end ?? l[1];
+              return (Number.isFinite(s) && Number.isFinite(e) && e > s) ? `${s}-${e}` : null;
+            })
+            .filter(Boolean);
+          if (locRanges.length === 0) return null;
+          return { begin: b, end: e, locRanges };
+        })
+        .filter(Boolean);
+      // Record timing: cpm (cycles per minute) / 60 = cps (cycles per second)
+      hlCps = extractCpm(code, 120) / 60;
+      hlStartTime = strudelMod.getAudioContext().currentTime;
+      // Show overlay + dim textarea
+      $hl.classList.add('active');
+      $codeStack.classList.add('playing');
+      startHighlightTick();
+    } catch(e) {
+      console.warn('startHighlightForCode failed', e);
+    }
+  }
+
+  async function play(code) {
+    try {
+      const ok = await ensureStrudel();
+      if (!ok) {
+        setStatus('Strudel 引擎未加载——可点"在 strudel.cc 打开"', 'err');
+        return;
+      }
+      if (typeof hush === 'function') hush();
+      stopHighlight();
+      if (typeof evaluate === 'function') {
+        await evaluate(code);
+      }
+      playing = true;
+      setStatus('播放中…', 'ok');
+      updatePlayBtn();
+      // Kick off highlight overlay in parallel (non-blocking)
+      startHighlightForCode(code);
+    } catch(e) {
+      console.error(e);
+      setStatus('代码有错：' + (e.message || e), 'err');
+    }
+  }
+
+  function stop() {
+    try {
+      if (typeof hush === 'function') hush();
+    } catch(e) {}
+    playing = false;
+    stopHighlight();
+    setStatus('已停止', '');
+    updatePlayBtn();
+  }
+
+  // ---- State ----
+  let activeRecipe = null;
+  let hasEnteredOnce = false;
+
+  // ---- DOM refs ----
+  const $layers    = document.getElementById('rl-layers');
+  const $code      = document.getElementById('rl-code');
+  const $name      = document.getElementById('rl-name');
+  const $bpm       = document.getElementById('rl-bpm');
+  const $tags      = document.getElementById('rl-tags');
+  const $recipes   = document.getElementById('rl-recipe-list');
+  const $play      = document.getElementById('rl-play');
+  const $status    = document.getElementById('rl-status');
+  const $noProject = document.getElementById('rl-no-project');
+  const $body      = document.getElementById('rl-body');
+
+  function setStatus(msg, cls) {
+    $status.textContent = msg;
+    $status.className = 'rl-status' + (cls ? ' ' + cls : '');
+  }
+
+  function updatePlayBtn() {
+    if (playing) {
+      $play.textContent = '■';
+      $play.classList.add('playing');
+    } else {
+      $play.textContent = '▶';
+      $play.classList.remove('playing');
+    }
+  }
+
+  // ---- Render: layer cards ----
+  function renderLayers() {
+    if (!activeRecipe) return;
+    $layers.innerHTML = '';
+    LAYER_META.forEach(meta => {
+      const layer = activeRecipe.layers[meta.key];
+      const card = document.createElement('div');
+      card.className = 'layer-card';
+      card.dataset.layer = meta.key;
+
+      const presets = Object.keys(PRESETS[meta.key]);
+      const labels = PRESET_LABELS[meta.key] || {};
+
+      card.innerHTML = `
+        <div class="layer-head">
+          <div>
+            <span class="layer-name">${meta.name}</span>
+            <span class="layer-subtle">${meta.sub}</span>
+          </div>
+          <button class="layer-mute ${layer.muted ? 'muted' : 'on'}" data-layer="${meta.key}">${layer.muted ? '静音' : '开'}</button>
+        </div>
+        <div class="layer-row">
+          <div class="layer-label">音色</div>
+          <select class="layer-select" data-layer="${meta.key}" data-param="preset">
+            ${presets.map(p => `<option value="${p}" ${p===layer.preset?'selected':''}>${labels[p] || p}</option>`).join('')}
+          </select>
+        </div>
+        <div class="layer-row">
+          <div class="layer-label">强度</div>
+          <input type="range" class="layer-slider" data-layer="${meta.key}" data-param="gain"
+                 min="0" max="1" step="0.01" value="${layer.gain}">
+          <div class="layer-value">${Math.round(layer.gain*100)}</div>
+        </div>
+        <div class="layer-row">
+          <div class="layer-label">密度</div>
+          <input type="range" class="layer-slider" data-layer="${meta.key}" data-param="density"
+                 min="0" max="1" step="0.01" value="${layer.density}">
+          <div class="layer-value">${Math.round(layer.density*100)}</div>
+        </div>
+      `;
+
+      // Bind changes
+      card.querySelector('.layer-mute').addEventListener('click', (e) => {
+        const l = e.target.dataset.layer;
+        activeRecipe.layers[l].muted = !activeRecipe.layers[l].muted;
+        renderLayers();
+        regenCode();
+      });
+      card.querySelectorAll('.layer-select, .layer-slider').forEach(el => {
+        el.addEventListener('input', (e) => {
+          const l = e.target.dataset.layer;
+          const p = e.target.dataset.param;
+          let v = e.target.value;
+          if (p === 'gain' || p === 'density') v = parseFloat(v);
+          activeRecipe.layers[l][p] = v;
+          // Update slider display
+          if (p === 'gain' || p === 'density') {
+            e.target.parentElement.querySelector('.layer-value').textContent = Math.round(v*100);
+          }
+          regenCode();
+        });
+      });
+
+      $layers.appendChild(card);
+    });
+  }
+
+  function renderTags() {
+    if (!activeRecipe) return;
+    $tags.innerHTML = '';
+    FEEL_TAGS.forEach(tag => {
+      const el = document.createElement('button');
+      el.className = 'rl-tag' + (activeRecipe.tags.includes(tag) ? ' active' : '');
+      el.textContent = tag;
+      el.addEventListener('click', () => {
+        const idx = activeRecipe.tags.indexOf(tag);
+        if (idx >= 0) activeRecipe.tags.splice(idx, 1);
+        else activeRecipe.tags.push(tag);
+        renderTags();
+      });
+      $tags.appendChild(el);
+    });
+  }
+
+  function renderRecipeList() {
+    $recipes.innerHTML = '';
+    if (!activeProject) return;
+    const list = activeProject.recipes || [];
+    if (list.length === 0) {
+      $recipes.innerHTML = '<div style="font-size:11px;color:var(--text-dim);padding:6px 2px;">还没有保存的配方</div>';
+      return;
+    }
+    list.forEach(r => {
+      const el = document.createElement('div');
+      el.className = 'rl-recipe-item' + (activeRecipe && activeRecipe.id === r.id ? ' active' : '');
+      el.innerHTML = `
+        <span>${r.name}</span>
+        <span class="rm" title="删除">×</span>
+      `;
+      el.addEventListener('click', (e) => {
+        if (e.target.classList.contains('rm')) {
+          if (confirm(`删除配方"${r.name}"？`)) {
+            activeProject.recipes = activeProject.recipes.filter(x => x.id !== r.id);
+            saveData();
+            if (activeRecipe && activeRecipe.id === r.id) {
+              activeRecipe = activeProject.recipes[0] || defaultRecipe('新配方');
+              if (!activeProject.recipes.includes(activeRecipe)) {
+                // it's a fresh unsaved one
+              }
+              loadRecipe(activeRecipe);
+            }
+            renderRecipeList();
+          }
+        } else {
+          loadRecipe(r);
+          renderRecipeList();
+        }
+      });
+      $recipes.appendChild(el);
+    });
+  }
+
+  function regenCode() {
+    if (!activeRecipe) return;
+    // Freecode recipes are hand-crafted — sliders don't regenerate code
+    if (activeRecipe.mode === 'freecode') return;
+    activeRecipe.code = generateCode(activeRecipe);
+    $code.value = activeRecipe.code;
+  }
+
+  function loadRecipe(r) {
+    activeRecipe = r;
+    $name.value = r.name;
+    $bpm.value = r.bpm;
+    // Preset mode: regenerate from layers if empty
+    if (r.mode !== 'freecode' && !r.code) r.code = generateCode(r);
+    $code.value = r.code;
+    renderLayers();
+    renderTags();
+    updateModeUI();
+  }
+
+  function updateModeUI() {
+    if (!activeRecipe) return;
+    const isFree = activeRecipe.mode === 'freecode';
+    // Dim the layer editor in freecode mode
+    $layers.style.opacity = isFree ? '0.4' : '1';
+    $layers.style.pointerEvents = isFree ? 'none' : 'auto';
+    // Update mode hint
+    let hint = document.getElementById('rl-mode-hint');
+    if (!hint) {
+      hint = document.createElement('div');
+      hint.id = 'rl-mode-hint';
+      hint.style.cssText = 'font-size:10px;color:var(--text-dim);padding:4px 2px 8px;letter-spacing:0.1em;';
+      $layers.parentElement.insertBefore(hint, $layers);
+    }
+    hint.textContent = isFree
+      ? '自由代码模式 · 直接在右侧改代码 · 滑块不生效'
+      : '配方模式 · 调滑块会自动重算代码';
+  }
+
+  function saveRecipe() {
+    if (!activeProject || !activeRecipe) return;
+    activeRecipe.name = $name.value.trim() || activeRecipe.name;
+    activeRecipe.bpm = parseInt($bpm.value) || activeRecipe.bpm;
+    activeRecipe.updatedAt = new Date().toISOString();
+    activeRecipe.code = $code.value;
+    if (!activeProject.recipes) activeProject.recipes = [];
+    const idx = activeProject.recipes.findIndex(r => r.id === activeRecipe.id);
+    if (idx >= 0) activeProject.recipes[idx] = activeRecipe;
+    else activeProject.recipes.push(activeRecipe);
+    activeProject.updatedAt = new Date().toISOString();
+    saveData();
+    renderRecipeList();
+    setStatus('已保存 · ' + activeRecipe.name, 'ok');
+  }
+
+  function newRecipe() {
+    const r = defaultRecipe('新配方', 'preset');
+    loadRecipe(r);
+    setStatus('新建配方(配方模式)，修改后记得"保存"', '');
+  }
+
+  function newFreecodeRecipe() {
+    const r = defaultRecipe('新自由代码', 'freecode');
+    r.code = `// 自由代码模式 — 在这里直接写Strudel代码
+// 参考"雨天窗台"看完整例子
+
+stack(
+  note("c3 e3 g3 c4").s("sine").slow(2)
+).cpm(90)`;
+    loadRecipe(r);
+    setStatus('新建自由代码配方，直接在右侧改代码', '');
+  }
+
+  // ---- Entry ----
+  function enter() {
+    if (!activeProject) {
+      $body.style.display = 'none';
+      $noProject.style.display = 'flex';
+      return;
+    }
+    $body.style.display = 'flex';
+    $noProject.style.display = 'none';
+
+    if (!activeProject.recipes) activeProject.recipes = [];
+
+    // Auto-seed default recipes if empty
+    if (!hasEnteredOnce && activeProject.recipes.length === 0) {
+      activeProject.recipes.push(snowfallRecipe());
+      activeProject.recipes.push(rainyWindowRecipe());
+      saveData();
+    }
+    // If the project already had recipes but 雨天窗台 isn't there, add it
+    else if (!activeProject.recipes.some(r => r.name === '雨天窗台')) {
+      activeProject.recipes.push(rainyWindowRecipe());
+      saveData();
+    }
+    hasEnteredOnce = true;
+
+    if (activeProject.recipes.length > 0) {
+      loadRecipe(activeProject.recipes[0]);
+    } else {
+      loadRecipe(defaultRecipe('新配方'));
+    }
+    renderRecipeList();
+  }
+
+  // ---- Bind top controls ----
+  $name.addEventListener('input', () => {
+    if (activeRecipe) activeRecipe.name = $name.value;
+  });
+  $bpm.addEventListener('change', () => {
+    if (!activeRecipe) return;
+    activeRecipe.bpm = parseInt($bpm.value) || 90;
+    regenCode();
+  });
+  $code.addEventListener('input', () => {
+    if (activeRecipe) activeRecipe.code = $code.value;
+  });
+  document.getElementById('rl-regen').addEventListener('click', () => {
+    regenCode();
+    setStatus('已从配方重新生成代码', 'ok');
+  });
+  document.getElementById('rl-new').addEventListener('click', newRecipe);
+  document.getElementById('rl-new-free').addEventListener('click', newFreecodeRecipe);
+  document.getElementById('rl-save').addEventListener('click', saveRecipe);
+  $play.addEventListener('click', async () => {
+    if (playing) {
+      stop();
+    } else {
+      const code = $code.value;
+      if (!code.trim()) return;
+      setStatus('加载 Strudel 引擎…', '');
+      await play(code);
+    }
+  });
+  document.getElementById('rl-strudelcc').addEventListener('click', () => {
+    const code = $code.value;
+    const url = 'https://strudel.cc/?code=' + encodeURIComponent(btoa(unescape(encodeURIComponent(code))));
+    window.open(url, '_blank');
+  });
+
+  return { enter, stop };
+})();
+
+// Hook into selectProject to refresh recipe lab if visible
+const _origSelectProject = selectProject;
+selectProject = function(id) {
+  _origSelectProject(id);
+  if (recipeLab.classList.contains('active')) {
+    RecipeLab.enter();
+  }
+};
+
+// ============================================================
+//  SCENES
+// ============================================================
+
+// ---- Scene: 呼吸 ----
+registerScene('breathe', {
+  name: '呼吸',
+  description: '坐一会儿，不着急',
+  duration: 45,
+
+  animation: {
+    particles: [],
+    setup(p) {
+      p.background(10, 11, 15);
+      this.particles = [];
+      for (let i = 0; i < 30; i++) {
+        this.particles.push({
+          x: p.random(p.width), y: p.random(p.height),
+          size: p.random(1, 2.5), alpha: p.random(8, 25),
+          vx: p.random(-0.15, 0.15), vy: p.random(-0.1, 0.1),
+          phase: p.random(p.TWO_PI),
+        });
+      }
+    },
+    draw(p, elapsed) {
+      p.background(10, 11, 15, 30);
+      const breathVal = Math.sin((elapsed % 8) / 8 * Math.PI * 2) * 0.5 + 0.5;
+      const cx = p.width / 2, cy = p.height / 2;
+      p.noStroke();
+      const baseRadius = 60 + breathVal * 40;
+      for (let i = 5; i >= 0; i--) {
+        const r = baseRadius + i * 35;
+        const a = p.map(i, 0, 5, 18, 2);
+        p.fill(120, 150, 200, a * (0.6 + breathVal * 0.4));
+        p.ellipse(cx, cy, r * 2, r * 2);
+      }
+      p.fill(160, 185, 220, 20 + breathVal * 15);
+      p.ellipse(cx, cy, baseRadius * 1.2, baseRadius * 1.2);
+      p.fill(200, 215, 240, 10 + breathVal * 20);
+      p.ellipse(cx, cy, baseRadius * 0.5, baseRadius * 0.5);
+      this.particles.forEach(pt => {
+        pt.x += pt.vx + Math.sin(elapsed * 0.3 + pt.phase) * 0.05;
+        pt.y += pt.vy + Math.cos(elapsed * 0.2 + pt.phase) * 0.05;
+        if (pt.x < -10) pt.x = p.width + 10;
+        if (pt.x > p.width + 10) pt.x = -10;
+        if (pt.y < -10) pt.y = p.height + 10;
+        if (pt.y > p.height + 10) pt.y = -10;
+        const twinkle = Math.sin(elapsed * 0.8 + pt.phase * 3) * 0.3 + 0.7;
+        p.fill(170, 190, 220, pt.alpha * twinkle);
+        p.ellipse(pt.x, pt.y, pt.size, pt.size);
+      });
+    }
+  },
+
+  music: {
+    synth: null, lfo: null, filter: null, reverb: null, gainNode: null, interval: null,
+    start() {
+      this.reverb = new Tone.Reverb({ decay: 8, wet: 0.7 }).toDestination();
+      this.gainNode = new Tone.Gain(0).connect(this.reverb);
+      this.filter = new Tone.Filter({ frequency: 600, type: 'lowpass', rolloff: -24 }).connect(this.gainNode);
+      this.synth = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: 'sine' },
+        envelope: { attack: 4, decay: 2, sustain: 0.6, release: 6 },
+        volume: -18,
+      }).connect(this.filter);
+      this.gainNode.gain.rampTo(1, 3);
+      this.lfo = new Tone.LFO({ frequency: '8s', min: 300, max: 800 }).start();
+      this.lfo.connect(this.filter.frequency);
+      const chords = [['C3','E3','G3','B3'],['A2','C3','E3','A3'],['F2','A2','C3','F3'],['G2','B2','D3','G3']];
+      let ci = 0;
+      const play = () => { if(!this.synth)return; this.synth.releaseAll(); this.synth.triggerAttack(chords[ci%chords.length]); ci++; };
+      play(); this.interval = setInterval(play, 10000);
+    },
+    stop() {
+      if(this.gainNode) this.gainNode.gain.rampTo(0,2);
+      setTimeout(()=>{
+        [this.synth,this.lfo,this.filter,this.reverb,this.gainNode].forEach(n=>{if(n){n.dispose();}});
+        this.synth=this.lfo=this.filter=this.reverb=this.gainNode=null;
+        if(this.interval){clearInterval(this.interval);this.interval=null;}
+      },2500);
+    }
+  },
+
+  texts: [
+    { time: 5, content: '你来了', fadeOut: 13, size: 24, color: 'rgba(190,200,218,0.75)' },
+    { time: 16, content: '坐一会儿', fadeOut: 23, size: 22, color: 'rgba(180,192,212,0.65)' },
+    { time: 26, content: '不着急', fadeOut: 38, size: 20, color: 'rgba(170,185,208,0.55)' },
+  ]
+});
+
+// ---- Scene: 铁轨上的花 ----
+registerScene('rail-flowers', {
+  name: '铁轨上的花',
+  description: '是你。我喜欢你。',
+  duration: 55,
+
+  animation: {
+    flowers: [], rails: [],
+    setup(p) {
+      p.background(8, 10, 18);
+      this.rails = [{ y: p.height * 0.72 }, { y: p.height * 0.72 + 18 }];
+      this.flowers = [];
+      for (let i = 0; i < 16; i++) {
+        this.flowers.push({
+          x: p.random(p.width*0.1, p.width*0.9), y: this.rails[0].y - p.random(3,12),
+          size: p.random(3,7), phase: p.random(p.TWO_PI),
+          hue: p.random(140,200), brightness: p.random(0.5,1),
+        });
+      }
+    },
+    draw(p, elapsed) {
+      p.background(8, 10, 18, 25);
+      const w = p.width, h = p.height;
+      p.noStroke();
+      for (let i = 0; i < 40; i++) {
+        const sx = (i*137.5+50)%w, sy = (i*97.3+30)%(h*0.55);
+        const tw = Math.sin(elapsed*0.5+i*0.7)*0.3+0.7;
+        p.fill(200,210,230,12*tw); p.ellipse(sx,sy,1.5,1.5);
+      }
+      p.fill(12,14,22); p.rect(0, this.rails[0].y+20, w, h);
+      p.stroke(60,65,80,80); p.strokeWeight(2);
+      this.rails.forEach(r => p.line(0,r.y,w,r.y));
+      p.stroke(40,42,52,50); p.strokeWeight(1);
+      for(let x=20;x<w;x+=40) p.line(x,this.rails[0].y-5,x,this.rails[1].y+5);
+      p.noStroke();
+      this.flowers.forEach(f => {
+        const pulse = Math.sin(elapsed*1.2+f.phase)*0.3+0.7, glow = f.brightness*pulse;
+        p.fill(f.hue*0.5,f.hue*0.7,220,8*glow); p.ellipse(f.x,f.y,f.size*6,f.size*6);
+        p.fill(f.hue*0.6,f.hue*0.8,230,25*glow); p.ellipse(f.x,f.y,f.size*2.5,f.size*2.5);
+        p.fill(160,220,210,60*glow); p.ellipse(f.x,f.y,f.size,f.size);
+      });
+      if (elapsed > 20) {
+        const gp = Math.min(1,(elapsed-20)/20);
+        const gx = p.lerp(w*0.15,w*0.55,gp), gy = this.rails[0].y-25;
+        const bob = Math.sin(elapsed*3)*1.5;
+        p.fill(180,195,215,40+gp*40);
+        p.ellipse(gx,gy-12+bob,8,8);
+        p.triangle(gx-5,gy+bob,gx+5,gy+bob,gx,gy-6+bob);
+      }
+      if (elapsed > 8) {
+        const ca = Math.min(1,(elapsed-8)/4);
+        const cx = w*0.6, cy = this.rails[0].y-15, cb = Math.sin(elapsed*0.8);
+        p.fill(160,175,200,50*ca);
+        p.ellipse(cx,cy+2+cb,22,14); p.ellipse(cx-8,cy-6+cb,12,10);
+        p.triangle(cx-14,cy-10+cb,cx-11,cy-18+cb,cx-8,cy-10+cb);
+        p.triangle(cx-6,cy-10+cb,cx-3,cy-18+cb,cx,cy-10+cb);
+        p.noFill(); p.stroke(160,175,200,40*ca); p.strokeWeight(2);
+        p.bezier(cx+10,cy+4+cb,cx+20,cy-5,cx+22,cy-15,cx+18,cy-20+Math.sin(elapsed)*3);
+        p.noStroke();
+        if (elapsed > 40) {
+          const bp = Math.min(1,(elapsed-40)/5), bs = 4*bp;
+          p.fill(130,220,200,70*bp); p.ellipse(cx+2,cy-5+cb,bs*3,bs*3);
+          p.fill(160,240,220,100*bp); p.ellipse(cx+2,cy-5+cb,bs,bs);
+        }
+      }
+    }
+  },
+
+  music: {
+    synth:null, bellSynth:null, reverb:null, gainNode:null, interval:null, bellInterval:null,
+    start() {
+      this.reverb = new Tone.Reverb({decay:10,wet:0.8}).toDestination();
+      this.gainNode = new Tone.Gain(0).connect(this.reverb);
+      this.synth = new Tone.PolySynth(Tone.Synth,{
+        oscillator:{type:'triangle'}, envelope:{attack:5,decay:3,sustain:0.4,release:8}, volume:-20,
+      }).connect(this.gainNode);
+      const bellRev = new Tone.Reverb({decay:6,wet:0.9}).toDestination();
+      this.bellSynth = new Tone.Synth({
+        oscillator:{type:'sine'}, envelope:{attack:0.01,decay:3,sustain:0,release:4}, volume:-24,
+      }).connect(bellRev);
+      this.gainNode.gain.rampTo(1,4);
+      const chords=[['D3','F3','A3'],['Bb2','D3','F3'],['G2','Bb2','D3'],['A2','C3','E3']];
+      let ci=0;
+      const play=()=>{if(!this.synth)return;this.synth.releaseAll();this.synth.triggerAttack(chords[ci%chords.length]);ci++;};
+      play(); this.interval=setInterval(play,13000);
+      const notes=['A4','D5','F5','E5','C5','A4','D5','G5']; let bi=0;
+      this.bellInterval=setInterval(()=>{if(!this.bellSynth)return;this.bellSynth.triggerAttackRelease(notes[bi%notes.length],'2n');bi++;},4500);
+    },
+    stop() {
+      if(this.gainNode)this.gainNode.gain.rampTo(0,2);
+      setTimeout(()=>{
+        [this.synth,this.bellSynth,this.reverb,this.gainNode].forEach(n=>{if(n)n.dispose();});
+        this.synth=this.bellSynth=this.reverb=this.gainNode=null;
+        if(this.interval)clearInterval(this.interval);
+        if(this.bellInterval)clearInterval(this.bellInterval);
+      },2500);
+    }
+  },
+
+  texts: [
+    { time:3, content:'铁轨延伸到看不见的地方', fadeOut:10, size:18, color:'rgba(160,180,210,0.5)' },
+    { time:12, content:'花从泥土里长了出来', fadeOut:19, size:18, color:'rgba(150,210,200,0.55)' },
+    { time:22, content:'她踩着枕木，一步一步走来', fadeOut:32, size:18, color:'rgba(180,195,215,0.6)' },
+    { time:36, content:'是你。', fadeOut:42, size:26, color:'rgba(200,210,225,0.8)' },
+    { time:43, content:'我喜欢你。', fadeOut:53, size:22, color:'rgba(160,230,215,0.75)' },
+  ]
+});
+
+// ============================================================
+//  Init
+// ============================================================
+renderProjects();
+
+// Restore last active project
+if (appData.activeProjectId) {
+  selectProject(appData.activeProjectId);
+}
+
+// ============================================================
+//  DJ STATION (Tone.js effect chain + audio file playback)
+// ============================================================
+window.DjStation = (() => {
+  let initialized = false;
+  let entered = false;
+  let chain = {};
+  let player = null;
+  let currentBuffer = null;
+  let currentFileName = null;
+  let isPlaying = false;
+  let isLooping = false;
+  let wavCanvas = null, wavCtx = null;
+
+  async function init() {
+    if (initialized) return;
+    await Tone.start();
+
+    // Effect chain: player → low → mid → high → filter → drive → crush → delay → reverb → out
+    chain.low    = new Tone.Filter({ frequency: 320,  type: 'lowshelf',  gain: 0 });
+    chain.mid    = new Tone.Filter({ frequency: 1200, type: 'peaking',   gain: 0, Q: 1 });
+    chain.high   = new Tone.Filter({ frequency: 3200, type: 'highshelf', gain: 0 });
+    chain.filter = new Tone.Filter({ frequency: 20000, type: 'lowpass', Q: 0.7 });
+    chain.drive  = new Tone.Distortion({ distortion: 0, wet: 0 });
+    chain.crush  = new Tone.BitCrusher(8);
+    chain.crush.wet.value = 0;
+    chain.delay  = new Tone.FeedbackDelay({ delayTime: '8n', feedback: 0.4, wet: 0 });
+    chain.reverb = new Tone.Reverb({ decay: 3, wet: 0 });
+    chain.volume = new Tone.Volume(-2);
+
+    chain.low.connect(chain.mid);
+    chain.mid.connect(chain.high);
+    chain.high.connect(chain.filter);
+    chain.filter.connect(chain.drive);
+    chain.drive.connect(chain.crush);
+    chain.crush.connect(chain.delay);
+    chain.delay.connect(chain.reverb);
+    chain.reverb.connect(chain.volume);
+    chain.volume.toDestination();
+
+    await chain.reverb.generate();
+    initialized = true;
+  }
+
+  function drawWaveform() {
+    if (!wavCanvas) {
+      wavCanvas = document.getElementById('dj-waveform');
+      wavCtx = wavCanvas.getContext('2d');
+    }
+    const r = wavCanvas.getBoundingClientRect();
+    wavCanvas.width = r.width * devicePixelRatio;
+    wavCanvas.height = r.height * devicePixelRatio;
+    const W = wavCanvas.width, H = wavCanvas.height;
+    wavCtx.fillStyle = 'rgba(28,35,51,0.6)';
+    wavCtx.fillRect(0, 0, W, H);
+    if (!currentBuffer) {
+      wavCtx.fillStyle = 'rgba(200,160,220,0.35)';
+      wavCtx.font = `${11 * devicePixelRatio}px monospace`;
+      wavCtx.textAlign = 'center';
+      wavCtx.fillText('选一个音频文件来开始', W/2, H/2);
+      return;
+    }
+    const ch = currentBuffer.getChannelData(0);
+    const step = Math.max(1, Math.floor(ch.length / W));
+    wavCtx.strokeStyle = 'rgba(218,176,96,0.5)';
+    wavCtx.lineWidth = 1 * devicePixelRatio;
+    wavCtx.beginPath();
+    for (let x = 0; x < W; x++) {
+      let min = 1, max = -1;
+      for (let i = 0; i < step; i++) {
+        const v = ch[x * step + i] || 0;
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
+      const y1 = H/2 + min * H/2 * 0.9;
+      const y2 = H/2 + max * H/2 * 0.9;
+      wavCtx.moveTo(x, y1);
+      wavCtx.lineTo(x, y2);
+    }
+    wavCtx.stroke();
+  }
+
+  async function loadFile(file) {
+    if (!initialized) await init();
+    if (player) { try { player.stop(); player.dispose(); } catch(_){} player = null; }
+    currentFileName = file.name;
+    document.getElementById('dj-track-name').textContent = `▼ ${file.name} · 解码中...`;
+    const arr = await file.arrayBuffer();
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    currentBuffer = await audioCtx.decodeAudioData(arr);
+    const toneBuf = new Tone.ToneAudioBuffer(currentBuffer);
+    player = new Tone.Player(toneBuf);
+    player.loop = isLooping;
+    player.connect(chain.low);
+    document.getElementById('dj-track-name').textContent = `▼ ${file.name} · ${currentBuffer.duration.toFixed(1)}s`;
+    drawWaveform();
+  }
+
+  function play() {
+    if (!player) return;
+    try {
+      if (isPlaying) { player.stop(); isPlaying = false; }
+      else { player.start(); isPlaying = true; }
+    } catch(e) { console.warn('dj play error', e); }
+    document.getElementById('dj-play-btn').textContent = isPlaying ? '■' : '▶';
+    document.getElementById('dj-play-btn').classList.toggle('playing', isPlaying);
+  }
+
+  function toggleLoop() {
+    isLooping = !isLooping;
+    if (player) player.loop = isLooping;
+    document.getElementById('dj-loop-btn').classList.toggle('active', isLooping);
+  }
+
+  // SVG旋钮工厂: 莫奈水彩调色
+  // centered=true 的旋钮 0 在中间,其他在最左
+  const KNOB_CONFIGS = [
+    { group: 'EQ · 均衡',    items: [
+      { id:'low',    label:'低',   min:-24, max:24, step:0.5, def:0,  centered:true,  fmt:v=>`${v.toFixed(1)}dB` },
+      { id:'mid',    label:'中',   min:-24, max:24, step:0.5, def:0,  centered:true,  fmt:v=>`${v.toFixed(1)}dB` },
+      { id:'high',   label:'高',   min:-24, max:24, step:0.5, def:0,  centered:true,  fmt:v=>`${v.toFixed(1)}dB` },
+    ]},
+    { group: 'Filter · 滤波', items: [
+      { id:'filter', label:'sweep', min:-100, max:100, step:1, def:0, centered:true,
+        fmt:v=>Math.abs(v)<3?'off':(v<0?`LPF ${Math.round(20000*Math.pow(1+v/100,3))}Hz`:`HPF ${Math.round(30*Math.pow(20000/30,v/100))}Hz`) },
+    ]},
+    { group: 'Effects · 幻境', items: [
+      { id:'reverb', label:'reverb', min:0, max:100, step:1, def:0,  centered:false, fmt:v=>`${v}%` },
+      { id:'delay',  label:'delay',  min:0, max:100, step:1, def:0,  centered:false, fmt:v=>`${v}%` },
+      { id:'crush',  label:'crush',  min:1, max:8,   step:0.5, def:8, centered:false, fmt:v=>v<7.5?`${v}bit`:'off' },
+      { id:'drive',  label:'drive',  min:0, max:100, step:1, def:0,  centered:false, fmt:v=>`${v}%` },
+    ]},
+    { group: 'Transport · 流转', items: [
+      { id:'tempo',  label:'tempo',  min:50, max:150, step:1, def:100, centered:true, fmt:v=>`${v}%` },
+      { id:'volume', label:'vol',    min:0,  max:100, step:1, def:80,  centered:false, fmt:v=>`${v}%` },
+    ]},
+  ];
+
+  // 值 ←→ track上的百分比(0=顶, 100=底)
+  function valueToPct(value, min, max) {
+    const t = (value - min) / (max - min);
+    return (1 - t) * 100;
+  }
+
+  function createKnob(cfg) {
+    const wrap = document.createElement('div');
+    wrap.className = 'dj-knob';
+    // 生成侧边刻度 (中置的加中点标记)
+    const tickHtml = cfg.centered
+      ? '<div class="dj-fader-tick" style="top:50%"></div><div class="dj-fader-tick" style="top:50%;right:0;left:auto"></div>'
+      : '';
+    wrap.innerHTML = `
+      <div class="dj-knob-label">${cfg.label}</div>
+      <div class="dj-fader-track" data-fader-id="${cfg.id}">
+        <div class="dj-fader-groove"></div>
+        <div class="dj-fader-ticks">${tickHtml}</div>
+        <div class="dj-fader-handle"></div>
+      </div>
+      <div class="dj-knob-val" id="dj-${cfg.id}-val">${cfg.fmt(cfg.def)}</div>
+    `;
+
+    const track = wrap.querySelector('.dj-fader-track');
+    const handle = wrap.querySelector('.dj-fader-handle');
+    const valEl = wrap.querySelector('.dj-knob-val');
+
+    const state = {
+      value: cfg.def, min: cfg.min, max: cfg.max, step: cfg.step,
+    };
+
+    function updateVisual() {
+      handle.style.top = valueToPct(state.value, state.min, state.max) + '%';
+      valEl.textContent = cfg.fmt(state.value);
+    }
+    updateVisual();
+
+    function setValue(v, notify = true) {
+      v = Math.max(state.min, Math.min(state.max, v));
+      v = Math.round(v / state.step) * state.step;
+      if (v === state.value) return;
+      state.value = v;
+      updateVisual();
+      if (notify && cfg.onInput) cfg.onInput(v);
+    }
+
+    // 从track的y坐标算value
+    function yToValue(clientY) {
+      const rect = track.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+      return state.min + (1 - pct) * (state.max - state.min);
+    }
+
+    // handle拖动
+    let dragging = false;
+    function onDown(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      dragging = true;
+      handle.classList.add('dragging');
+      const y = (e.touches ? e.touches[0].clientY : e.clientY);
+      setValue(yToValue(y));
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+      document.addEventListener('touchmove', onMove, { passive: false });
+      document.addEventListener('touchend', onUp);
+    }
+    function onMove(e) {
+      if (!dragging) return;
+      e.preventDefault();
+      const y = (e.touches ? e.touches[0].clientY : e.clientY);
+      setValue(yToValue(y));
+    }
+    function onUp() {
+      dragging = false;
+      handle.classList.remove('dragging');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onUp);
+    }
+    handle.addEventListener('mousedown', onDown);
+    handle.addEventListener('touchstart', onDown, { passive: false });
+    // 点击轨道任意位置 → handle瞬移然后继续拖 (DJ体验)
+    track.addEventListener('mousedown', onDown);
+    track.addEventListener('touchstart', onDown, { passive: false });
+    // 双击 → 归零
+    handle.addEventListener('dblclick', (e) => { e.stopPropagation(); setValue(cfg.def); });
+    track.addEventListener('dblclick', (e) => { if (e.target === handle) return; setValue(cfg.def); });
+    // 滚轮微调
+    track.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const step = state.step * (e.shiftKey ? 5 : 1);
+      setValue(state.value + (e.deltaY < 0 ? step : -step));
+    }, { passive: false });
+
+    wrap._knobState = state;
+    wrap._knobSetValue = setValue;
+    return wrap;
+  }
+
+  // 全局: knob引用 (id → {wrap, setValue, getValue})
+  const knobs = {};
+
+  function buildKnobsUI() {
+    const grid = document.getElementById('dj-knobs-grid');
+    grid.innerHTML = '';
+    for (const group of KNOB_CONFIGS) {
+      const g = document.createElement('div');
+      g.className = 'dj-knob-group';
+      g.innerHTML = `<div class="dj-group-label">${group.group}</div><div class="dj-knobs-row"></div>`;
+      const row = g.querySelector('.dj-knobs-row');
+      for (const it of group.items) {
+        const cfg = { ...it, onInput: (v) => applyKnobChange(it.id, v) };
+        const el = createKnob(cfg);
+        row.appendChild(el);
+        knobs[it.id] = el;
+      }
+      grid.appendChild(g);
+    }
+  }
+
+  // 旋钮值变化 → 改Tone节点
+  function applyKnobChange(id, v) {
+    switch (id) {
+      case 'low':  if (chain.low)  chain.low.gain.value  = v; break;
+      case 'mid':  if (chain.mid)  chain.mid.gain.value  = v; break;
+      case 'high': if (chain.high) chain.high.gain.value = v; break;
+      case 'filter':
+        if (!chain.filter) break;
+        if (Math.abs(v) < 3) {
+          chain.filter.type = 'lowpass';
+          chain.filter.frequency.rampTo(20000, 0.05);
+        } else if (v < 0) {
+          chain.filter.type = 'lowpass';
+          const f = 20000 * Math.pow(1 + v/100, 3);
+          chain.filter.frequency.rampTo(Math.max(80, f), 0.05);
+        } else {
+          chain.filter.type = 'highpass';
+          const f = 30 * Math.pow(20000/30, v/100);
+          chain.filter.frequency.rampTo(Math.min(15000, f), 0.05);
+        }
+        break;
+      case 'reverb': if (chain.reverb) chain.reverb.wet.rampTo(v/100, 0.05); break;
+      case 'delay':  if (chain.delay)  chain.delay.wet.rampTo(v/100, 0.05); break;
+      case 'crush':
+        if (!chain.crush) break;
+        chain.crush.bits = v;
+        chain.crush.wet.rampTo(v < 7.5 ? 1 : 0, 0.05);
+        break;
+      case 'drive':
+        if (!chain.drive) break;
+        chain.drive.distortion = v/100;
+        chain.drive.wet.rampTo(v/100, 0.05);
+        break;
+      case 'tempo':  if (player) player.playbackRate = v/100; break;
+      case 'volume': if (chain.volume) chain.volume.volume.rampTo(v === 0 ? -Infinity : 20*Math.log10(v/100), 0.05); break;
+    }
+  }
+
+  function resetKnobs() {
+    for (const cfg of KNOB_CONFIGS.flatMap(g => g.items)) {
+      if (knobs[cfg.id]) knobs[cfg.id]._knobSetValue(cfg.def);
+    }
+  }
+
+  function enter() {
+    if (!entered) {
+      entered = true;
+      // 文件选择
+      document.getElementById('dj-file').addEventListener('change', e => {
+        const f = e.target.files[0];
+        if (f) loadFile(f);
+      });
+      // 拖放
+      const drop = document.getElementById('dj-station');
+      drop.addEventListener('dragover', e => { e.preventDefault(); });
+      drop.addEventListener('drop', e => {
+        e.preventDefault();
+        const f = e.dataTransfer.files[0];
+        if (f && f.type.startsWith('audio')) loadFile(f);
+      });
+      // 播放/循环/重置
+      document.getElementById('dj-play-btn').addEventListener('click', async () => {
+        if (!initialized) await init();
+        play();
+      });
+      document.getElementById('dj-loop-btn').addEventListener('click', toggleLoop);
+      document.getElementById('dj-reset-btn').addEventListener('click', resetKnobs);
+      buildKnobsUI();
+      drawWaveform();
+    } else {
+      drawWaveform();
+    }
+  }
+
+  return { enter };
+})();
+</script>
+</body>
+</html>
